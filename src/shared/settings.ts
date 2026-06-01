@@ -10,6 +10,8 @@ export interface Settings {
   skip: Record<SkipType, boolean>;
   /** Auto-play the next episode when one finishes. */
   autoNext: boolean;
+  /** Dismiss "are you still watching?" / profile prompts to keep playback going. */
+  keepWatching: boolean;
   /** Show a "Skipped X — Undo" toast after each skip. */
   showToast: boolean;
   /**
@@ -34,6 +36,7 @@ export const DEFAULT_SETTINGS: Settings = {
     preview: true,
   },
   autoNext: true,
+  keepWatching: true,
   showToast: true,
   mode: 'seek',
   mal: {

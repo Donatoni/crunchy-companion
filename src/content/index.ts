@@ -12,6 +12,7 @@ import { startDomSkip } from './dom-skip';
 import { attachAutoNext } from './autonext';
 import { attachProgress } from './progress';
 import { extractMeta } from './meta';
+import { startKeepWatching } from './keep-watching';
 import { showToast } from './toast';
 import { requestSkipEvents, sendEpisodeMeta } from '@/shared/messages';
 import { log } from '@/shared/log';
@@ -19,8 +20,13 @@ import type { EpisodeContext } from '@/shared/types';
 
 log('content script loaded in', location.href);
 
-/** True in the top watch document (URL has /watch/), false in the player iframe. */
-const isTopWatch = /\/watch\//.test(location.href);
+/**
+ * True when this frame is currently showing a watch page (URL has /watch/).
+ * Evaluated live, NOT once at load: Crunchyroll is an SPA, so the same top-frame
+ * document goes series-page -> watch-page without reloading the content script.
+ * A cached value would stay false after navigating in from a series page.
+ */
+const isTopWatch = () => /\/watch\//.test(location.href);
 
 chrome.runtime.onMessage.addListener(
   (
@@ -30,13 +36,13 @@ chrome.runtime.onMessage.addListener(
   ) => {
     // Worker -> top frame: show a tracker result toast (top frame only, so it
     // isn't duplicated inside the iframe).
-    if (msg?.type === 'TRACKER_TOAST' && isTopWatch && msg.text) {
+    if (msg?.type === 'TRACKER_TOAST' && isTopWatch() && msg.text) {
       showToast({ message: msg.text, durationMs: 4000 });
       return false;
     }
     // Popup -> page: live status for the card. Only the top watch frame answers.
     if (msg?.type === 'GET_STATUS') {
-      if (!isTopWatch) return false;
+      if (!isTopWatch()) return false;
       const ctx = parseEpisode();
       if (!ctx) {
         sendResponse({ meta: null, segments: 0 });
@@ -71,6 +77,10 @@ getSettings()
   .catch(() => {});
 onSettingsChanged((s) => (settings = s));
 
+// Runs for the whole frame lifetime (not per-episode): dismiss "still watching"
+// / profile prompts so auto-play sessions aren't interrupted.
+startKeepWatching(() => settings.enabled && settings.keepWatching);
+
 let teardown: Array<() => void> = [];
 function teardownSession(): void {
   for (const fn of teardown) {
@@ -87,7 +97,7 @@ function startSession(ctx: EpisodeContext | null): void {
   teardownSession();
 
   // Top frame: scrape episode metadata for the tracker and hand it to the worker.
-  if (isTopWatch && ctx) {
+  if (isTopWatch() && ctx) {
     const meta = extractMeta(ctx.episodeId);
     if (meta) {
       log('episode meta', `${meta.series} S${meta.season} E${meta.episode}`);

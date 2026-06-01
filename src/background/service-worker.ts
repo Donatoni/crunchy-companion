@@ -14,7 +14,12 @@ import {
   setTokenData,
   type TrackerMapping,
 } from '@/shared/tracker-store';
-import { refresh, searchAnime, updateProgress } from '@/shared/mal';
+import {
+  getAnimeStatus,
+  refresh,
+  searchAnime,
+  setMyListStatus,
+} from '@/shared/mal';
 
 /** Seed defaults on install so the popup/options never render an empty state. */
 chrome.runtime.onInstalled.addListener(async () => {
@@ -115,9 +120,27 @@ async function onEpisodeWatched(tabId: number): Promise<void> {
       toast(tabId, `Crunchy Tools: couldn't find "${meta.series}" on MyAnimeList`);
       return;
     }
-    const completed = mapping.episodes != null && meta.episode >= mapping.episodes;
-    await updateProgress(access, mapping.mediaId, meta.episode, completed);
-    toast(tabId, `MyAnimeList updated: ${mapping.title} • episode ${meta.episode}`);
+    const current = await getAnimeStatus(access, mapping.mediaId).catch(() => null);
+    const total = mapping.episodes ?? current?.total ?? null;
+    // Non-destructive: only ever move progress FORWARD. Prevents a casual
+    // rewatch / jumping to an earlier episode from dragging your count down.
+    const watched = Math.max(current?.watched ?? 0, meta.episode);
+
+    const patch: { num_watched_episodes: number; status?: string } = {
+      num_watched_episodes: watched,
+    };
+    if (current?.rewatching) {
+      // Rewatch in progress: bump the episode only; keep completed +
+      // is_rewatching (MAL finalizes num_times_rewatched at the total).
+    } else if (total != null && watched >= total) {
+      patch.status = 'completed';
+    } else if (current?.status !== 'completed') {
+      // Actively watching, not finished, not already completed → watching.
+      // Don't downgrade a completed entry or override on-hold/dropped→completed.
+      patch.status = 'watching';
+    }
+    await setMyListStatus(access, mapping.mediaId, patch);
+    toast(tabId, `MyAnimeList updated: ${mapping.title} • episode ${watched}`);
   } catch (err) {
     toast(tabId, `Crunchy Tools: MAL sync failed (${err instanceof Error ? err.message : 'error'})`);
   }
@@ -141,6 +164,56 @@ chrome.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendRespo
       const segments = meta ? (skipCache.get(meta.episodeId)?.length ?? 0) : 0;
       sendResponse({ meta, segments });
       return false;
+    }
+    case 'GET_MAL_STATUS': {
+      const meta = message.meta;
+      (async () => {
+        const access = await validAccessToken();
+        if (!access) return sendResponse({ ok: false });
+        const mapping = await resolveMapping(access, meta);
+        if (!mapping) return sendResponse({ ok: false });
+        const s = await getAnimeStatus(access, mapping.mediaId);
+        sendResponse({
+          ok: true,
+          title: mapping.title,
+          animeId: mapping.mediaId,
+          total: s.total,
+          watched: s.watched,
+          status: s.status,
+          score: s.score,
+          mean: s.mean,
+          rewatching: s.rewatching,
+          rewatchCount: s.rewatchCount,
+        });
+      })().catch(() => sendResponse({ ok: false }));
+      return true; // async response
+    }
+    case 'SET_MAL_STATUS': {
+      const { meta, patch } = message;
+      (async () => {
+        const access = await validAccessToken();
+        if (!access) return sendResponse({ ok: false });
+        const mapping = await resolveMapping(access, meta);
+        if (!mapping) return sendResponse({ ok: false });
+        await setMyListStatus(access, mapping.mediaId, patch);
+        const s = await getAnimeStatus(access, mapping.mediaId);
+        sendResponse({
+          ok: true,
+          title: mapping.title,
+          animeId: mapping.mediaId,
+          total: s.total,
+          watched: s.watched,
+          status: s.status,
+          score: s.score,
+          mean: s.mean,
+          rewatching: s.rewatching,
+          rewatchCount: s.rewatchCount,
+        });
+      })().catch((err) => {
+        console.warn('[Crunchy Tools] MAL update failed:', err);
+        sendResponse({ ok: false, error: err instanceof Error ? err.message : 'error' });
+      });
+      return true; // async response
     }
     default:
       return false;

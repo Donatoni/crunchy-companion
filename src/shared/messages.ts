@@ -55,11 +55,47 @@ export interface ContentStatusRequest {
   type: 'GET_STATUS';
 }
 
+/** Popup -> worker: the signed-in user's MAL list entry for the current show. */
+export interface MalStatusRequest {
+  type: 'GET_MAL_STATUS';
+  meta: TrackerMeta;
+}
+export interface MalStatusResponse {
+  ok: boolean;
+  title?: string;
+  /** MAL anime id (for linking to the show's page). */
+  animeId?: number;
+  total?: number | null;
+  watched?: number;
+  status?: string | null;
+  score?: number | null;
+  mean?: number | null;
+  rewatching?: boolean;
+  rewatchCount?: number;
+  /** Failure detail (HTTP status / message) when ok === false. */
+  error?: string;
+}
+
+/** Popup -> worker: edit the user's MAL list entry for the current show. */
+export interface SetMalStatusRequest {
+  type: 'SET_MAL_STATUS';
+  meta: TrackerMeta;
+  patch: {
+    num_watched_episodes?: number;
+    status?: string;
+    score?: number;
+    is_rewatching?: boolean;
+    num_times_rewatched?: number;
+  };
+}
+
 export type RuntimeMessage =
   | FetchSkipEventsRequest
   | EpisodeMetaMessage
   | EpisodeWatchedMessage
-  | TabStatusRequest;
+  | TabStatusRequest
+  | MalStatusRequest
+  | SetMalStatusRequest;
 
 /** Promise wrapper around chrome.runtime.sendMessage for skip-events. */
 export function requestSkipEvents(
@@ -87,6 +123,24 @@ export function requestTabStatus(tabId: number): Promise<TabStatusResponse> {
   return chrome.runtime.sendMessage<TabStatusRequest, TabStatusResponse>({
     type: 'GET_TAB_STATUS',
     tabId,
+  });
+}
+
+export function requestMalStatus(meta: TrackerMeta): Promise<MalStatusResponse> {
+  return chrome.runtime.sendMessage<MalStatusRequest, MalStatusResponse>({
+    type: 'GET_MAL_STATUS',
+    meta,
+  });
+}
+
+export function setMalStatus(
+  meta: TrackerMeta,
+  patch: SetMalStatusRequest['patch'],
+): Promise<MalStatusResponse> {
+  return chrome.runtime.sendMessage<SetMalStatusRequest, MalStatusResponse>({
+    type: 'SET_MAL_STATUS',
+    meta,
+    patch,
   });
 }
 

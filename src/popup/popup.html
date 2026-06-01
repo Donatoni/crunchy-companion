@@ -41,6 +41,39 @@
           </div>
         </div>
       </div>
+      <div class="mal-info" id="malInfo" hidden>
+        <label class="mal-field">Ep
+          <input class="mal-ep" id="malEp" type="number" min="0" inputmode="numeric" />
+          <span id="malTotal"></span>
+        </label>
+        <span class="mal-sep">·</span>
+        <select class="mal-select" id="malStatusSel" aria-label="List status">
+          <option value="watching">Watching</option>
+          <option value="completed">Completed</option>
+          <option value="on_hold">On hold</option>
+          <option value="dropped">Dropped</option>
+          <option value="plan_to_watch">Plan to watch</option>
+        </select>
+        <span class="mal-sep">·</span>
+        <select class="mal-select" id="malScoreSel" aria-label="Score">
+          <option value="">★ –</option>
+          <option value="10">★ 10</option>
+          <option value="9">★ 9</option>
+          <option value="8">★ 8</option>
+          <option value="7">★ 7</option>
+          <option value="6">★ 6</option>
+          <option value="5">★ 5</option>
+          <option value="4">★ 4</option>
+          <option value="3">★ 3</option>
+          <option value="2">★ 2</option>
+          <option value="1">★ 1</option>
+        </select>
+      </div>
+      <div class="mal-rewatch" id="malRewatch" hidden>
+        <a class="mal-link" id="malLink" target="_blank" rel="noopener" hidden>View on MAL ↗</a>
+        <button type="button" class="mal-rw-btn" id="malRewatchBtn" hidden>↻ Rewatch</button>
+      </div>
+      <div class="mal-err" id="malErr" hidden></div>
     </div>
 
     <div class="section">

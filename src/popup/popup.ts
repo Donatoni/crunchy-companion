@@ -1,7 +1,9 @@
 import { getSettings, patchSettings, type Settings } from '@/shared/settings';
-import type { SkipType } from '@/shared/types';
+import type { SkipType, TrackerMeta } from '@/shared/types';
+import { requestMalStatus, setMalStatus } from '@/shared/messages';
 import type {
   ContentStatusRequest,
+  MalStatusResponse,
   TabStatusResponse,
 } from '@/shared/messages';
 import { formatSaved, getStats } from '@/shared/stats';
@@ -47,14 +49,20 @@ async function renderStatus(): Promise<void> {
   const thumbEl = document.querySelector<HTMLDivElement>('#statusThumb')!;
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.id) return;
+    if (!tab?.id) {
+      hideMal();
+      return;
+    }
     // Ask the content script on the page directly — it always has live episode
     // data, unlike the service worker's cache which is cleared when it sleeps.
     const st = await chrome.tabs.sendMessage<ContentStatusRequest, TabStatusResponse>(
       tab.id,
       { type: 'GET_STATUS' },
     );
-    if (!st?.meta) return;
+    if (!st?.meta) {
+      hideMal();
+      return;
+    }
 
     const { series, season, episode, thumbnail } = st.meta;
     const se = [season ? `S${season}` : null, episode ? `E${episode}` : null]
@@ -76,10 +84,142 @@ async function renderStatus(): Promise<void> {
       dotEl.classList.add('idle');
       subEl.textContent = 'No skip data for this episode';
     }
+
+    currentMeta = st.meta;
+    void renderMalInfo(st.meta);
   } catch {
-    /* not on a watch page / worker asleep — leave the default idle state */
+    // Not on a watch page / worker asleep — clear the MAL UI, keep the card idle.
+    hideMal();
   }
 }
+
+// ── MyAnimeList status line (editable) ──────────────────────────────
+const malInfoEl = document.querySelector<HTMLDivElement>('#malInfo')!;
+const malEpEl = document.querySelector<HTMLInputElement>('#malEp')!;
+const malTotalEl = document.querySelector<HTMLSpanElement>('#malTotal')!;
+const malStatusSel = document.querySelector<HTMLSelectElement>('#malStatusSel')!;
+const malScoreSel = document.querySelector<HTMLSelectElement>('#malScoreSel')!;
+const malErrEl = document.querySelector<HTMLDivElement>('#malErr')!;
+const malRewatchEl = document.querySelector<HTMLDivElement>('#malRewatch')!;
+const malRewatchBtn = document.querySelector<HTMLButtonElement>('#malRewatchBtn')!;
+const malLink = document.querySelector<HTMLAnchorElement>('#malLink')!;
+
+/** The show the popup is currently bound to (for edit writes). */
+let currentMeta: TrackerMeta | null = null;
+/** Total episodes for the current show (for "mark complete" / last-ep logic). */
+let malTotal: number | null = null;
+
+function applyMalResponse(r: MalStatusResponse | undefined): void {
+  if (!r?.ok) {
+    malInfoEl.hidden = true;
+    return;
+  }
+  malTotal = r.total ?? null;
+  malEpEl.value = String(r.watched ?? 0);
+  if (r.total) malEpEl.max = String(r.total);
+  malTotalEl.textContent = r.total ? `/ ${r.total}` : '';
+  malStatusSel.value = r.status ?? 'watching';
+  malScoreSel.value = r.score ? String(r.score) : '';
+
+  // Link to the show's MyAnimeList page.
+  if (r.animeId) {
+    malLink.href = `https://myanimelist.net/anime/${r.animeId}`;
+    malLink.hidden = false;
+  } else {
+    malLink.hidden = true;
+  }
+
+  // Rewatch button on any completed show.
+  malRewatchBtn.hidden = r.status !== 'completed';
+
+  // Show the row only if it has something in it.
+  malRewatchEl.hidden = malLink.hidden && malRewatchBtn.hidden;
+
+  malErrEl.hidden = true;
+  malInfoEl.hidden = false;
+}
+
+/** Hide all MAL UI — used when nothing is playing / not connected. */
+function hideMal(): void {
+  currentMeta = null;
+  malInfoEl.hidden = true;
+  malRewatchEl.hidden = true;
+  malErrEl.hidden = true;
+}
+
+/** Show the signed-in user's MAL list entry for the current show, if connected. */
+async function renderMalInfo(meta: TrackerMeta): Promise<void> {
+  try {
+    applyMalResponse(await requestMalStatus(meta));
+  } catch {
+    malInfoEl.hidden = true;
+  }
+}
+
+/** Push an edit to MAL, then re-render from the server's response. */
+async function saveMal(patch: {
+  num_watched_episodes?: number;
+  status?: string;
+  score?: number;
+  is_rewatching?: boolean;
+}): Promise<void> {
+  if (!currentMeta) return;
+  malErrEl.hidden = true;
+  malInfoEl.style.opacity = '0.5';
+  try {
+    const r = await setMalStatus(currentMeta, patch);
+    if (r?.ok) {
+      applyMalResponse(r);
+    } else {
+      malErrEl.textContent = r?.error ? `Couldn't save: ${r.error}` : "Couldn't save to MAL";
+      malErrEl.hidden = false;
+      console.warn('[Crunchy Tools] MAL save failed:', r?.error);
+      await renderMalInfo(currentMeta); // revert controls to the server's truth
+    }
+  } catch (e) {
+    malErrEl.textContent = "Couldn't reach MAL";
+    malErrEl.hidden = false;
+    console.warn('[Crunchy Tools] MAL save error:', e);
+  } finally {
+    malInfoEl.style.opacity = '1';
+  }
+}
+
+malEpEl.addEventListener('change', () => {
+  const n = Math.max(0, Math.floor(Number(malEpEl.value) || 0));
+  const patch: { num_watched_episodes: number; status?: string } = {
+    num_watched_episodes: n,
+  };
+  // Reaching the final episode marks the show complete.
+  if (malTotal && n >= malTotal) patch.status = 'completed';
+  void saveMal(patch);
+});
+malStatusSel.addEventListener('change', () => {
+  const patch: { status: string; num_watched_episodes?: number } = {
+    status: malStatusSel.value,
+  };
+  // Marking complete implies every episode was watched.
+  if (malStatusSel.value === 'completed' && malTotal) {
+    patch.num_watched_episodes = malTotal;
+  }
+  void saveMal(patch);
+});
+malScoreSel.addEventListener('change', () =>
+  void saveMal({ score: malScoreSel.value ? Number(malScoreSel.value) : 0 }),
+);
+
+malRewatchBtn.addEventListener('click', () => {
+  malRewatchBtn.hidden = true; // hide immediately; the re-render confirms state
+  const ep = currentMeta?.episode;
+  // Flip to "watching" and restart progress at the current episode. Clear
+  // is_rewatching — MAL forces the status back to "completed" while it's set,
+  // which defeats the whole point.
+  void saveMal({
+    status: 'watching',
+    is_rewatching: false,
+    num_watched_episodes: ep && ep > 0 ? ep : 1,
+  });
+});
 
 enabledEl.addEventListener('change', async () => {
   await patchSettings({ enabled: enabledEl.checked });

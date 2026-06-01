@@ -11,4 +11,4 @@
  * A client ID is not a secret in OAuth public-client (PKCE) flows, so it's safe
  * to ship in the bundle.
  */
-export const MAL_CLIENT_ID = 'PASTE_YOUR_MAL_CLIENT_ID_HERE';
+export const MAL_CLIENT_ID = '9bb4b1bb5cdb9697b154bc9739f9e607';

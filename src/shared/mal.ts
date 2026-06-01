@@ -115,6 +115,85 @@ export async function searchAnime(access: string, q: string): Promise<MalAnime[]
   }));
 }
 
+export interface MalStatus {
+  /** Total episodes in the anime, if known. */
+  total: number | null;
+  /** Community mean score, if any. */
+  mean: number | null;
+  /** The user's list status (watching/completed/…) or null if not on their list. */
+  status: string | null;
+  /** The user's score (1–10), or null/0 if unrated. */
+  score: number | null;
+  /** Episodes the user has marked watched. */
+  watched: number;
+  /** Whether the user is currently rewatching. */
+  rewatching: boolean;
+  /** How many times the user has rewatched it. */
+  rewatchCount: number;
+}
+
+/** Fetch the anime's totals plus the signed-in user's list entry for it. */
+export async function getAnimeStatus(
+  access: string,
+  animeId: number,
+): Promise<MalStatus> {
+  const res = await fetch(
+    `${API}/anime/${animeId}?fields=num_episodes,mean,my_list_status{status,score,num_episodes_watched,is_rewatching,num_times_rewatched}`,
+    { headers: { Authorization: `Bearer ${access}` }, cache: 'no-store' },
+  );
+  if (!res.ok) throw new Error(`MAL HTTP ${res.status}`);
+  const j = await res.json();
+  const m = j.my_list_status;
+  return {
+    total: j.num_episodes || null,
+    mean: j.mean ?? null,
+    status: m?.status ?? null,
+    score: m?.score || null,
+    watched: m?.num_episodes_watched ?? 0,
+    rewatching: !!m?.is_rewatching,
+    rewatchCount: m?.num_times_rewatched ?? 0,
+  };
+}
+
+export interface MalListPatch {
+  num_watched_episodes?: number;
+  status?: string;
+  /** 1–10, or 0 to clear the score. */
+  score?: number;
+  is_rewatching?: boolean;
+  num_times_rewatched?: number;
+}
+
+/** Patch the signed-in user's list entry (any subset of fields). */
+export async function setMyListStatus(
+  access: string,
+  animeId: number,
+  patch: MalListPatch,
+): Promise<void> {
+  const body = new URLSearchParams();
+  if (patch.num_watched_episodes != null)
+    body.set('num_watched_episodes', String(patch.num_watched_episodes));
+  if (patch.status) body.set('status', patch.status);
+  if (patch.score != null) body.set('score', String(patch.score));
+  if (patch.is_rewatching != null)
+    body.set('is_rewatching', String(patch.is_rewatching));
+  if (patch.num_times_rewatched != null)
+    body.set('num_times_rewatched', String(patch.num_times_rewatched));
+  const res = await fetch(`${API}/anime/${animeId}/my_list_status`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${access}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body,
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`HTTP ${res.status} ${detail}`.trim().slice(0, 180));
+  }
+}
+
 export async function updateProgress(
   access: string,
   animeId: number,

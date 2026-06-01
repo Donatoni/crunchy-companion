@@ -61,12 +61,13 @@ export function startDomSkip(enabled: () => boolean): DomSkipController {
   const tryClick = () => {
     if (!enabled()) return;
     for (const btn of findSkipButtons(document)) {
-      if (isVisible(btn)) {
-        log('clicking native skip button:', (btn.textContent ?? '').trim().slice(0, 30));
-        btn.click();
-        void bumpSkip(0);
-        break;
-      }
+      // Some matches (e.g. SVG icons) aren't clickable HTMLElements — skip them
+      // and keep looking rather than throwing.
+      if (typeof btn.click !== 'function' || !isVisible(btn)) continue;
+      log('clicking native skip button:', (btn.textContent ?? '').trim().slice(0, 30));
+      btn.click();
+      void bumpSkip(0);
+      break;
     }
   };
 
