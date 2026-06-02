@@ -274,7 +274,7 @@ body {
   width: 38px; height: 38px; flex: 0 0 auto; border-radius: 10px; display: grid;
   place-items: center; background: #2e51a2; color: #fff; font-weight: 700; font-size: 13px;
 }
-.mal-nudge .nudge-main { flex: 1; }
+.mal-nudge .nudge-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .mal-nudge .nudge-title { font-size: 13px; font-weight: 600; }
 .mal-nudge .nudge-sub { font-size: 11.5px; color: var(--text-3); margin-top: 2px; }
 .mal-note {
