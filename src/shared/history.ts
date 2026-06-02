@@ -45,6 +45,16 @@ export async function recordHistory(
   }
 }
 
+/** Remove a single entry by series (the key each entry is stored under). */
+export async function removeHistory(series: string): Promise<void> {
+  const r = await chrome.storage.local.get(KEY);
+  const list = (r[KEY] as HistoryEntry[] | undefined) ?? [];
+  const key = series.trim().toLowerCase();
+  await chrome.storage.local.set({
+    [KEY]: list.filter((e) => e.series.trim().toLowerCase() !== key),
+  });
+}
+
 export async function clearHistory(): Promise<void> {
   await chrome.storage.local.remove(KEY);
 }

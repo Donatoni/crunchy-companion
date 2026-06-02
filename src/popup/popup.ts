@@ -7,7 +7,7 @@ import type {
   TabStatusResponse,
 } from '@/shared/messages';
 import { formatSaved, getStats } from '@/shared/stats';
-import { clearHistory, getHistory } from '@/shared/history';
+import { clearHistory, getHistory, removeHistory } from '@/shared/history';
 
 const $ = <T extends HTMLElement>(sel: string) => document.querySelector<T>(sel)!;
 
@@ -458,10 +458,15 @@ async function renderHistory(): Promise<void> {
     return;
   }
   for (const it of items) {
-    const row = document.createElement('button');
-    row.type = 'button';
+    const row = document.createElement('div');
     row.className = 'hist-item';
     row.title = it.series;
+
+    // Clickable area (opens the episode). Kept separate from the delete button
+    // because a <button> can't be nested inside another <button>.
+    const open = document.createElement('button');
+    open.type = 'button';
+    open.className = 'hist-open';
 
     const thumb = document.createElement('div');
     thumb.className = 'hist-thumb';
@@ -486,8 +491,22 @@ async function renderHistory(): Promise<void> {
     time.className = 'hist-time';
     time.textContent = relTime(it.updatedAt);
 
-    row.append(thumb, main, time);
-    row.addEventListener('click', () => void openEpisode(it.url));
+    open.append(thumb, main, time);
+    open.addEventListener('click', () => void openEpisode(it.url));
+
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'hist-del';
+    del.title = 'Remove from list';
+    del.setAttribute('aria-label', `Remove ${it.series} from Recent`);
+    del.innerHTML =
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+    del.addEventListener('click', async () => {
+      await removeHistory(it.series);
+      await renderHistory();
+    });
+
+    row.append(open, del);
     histListEl.appendChild(row);
   }
 }
