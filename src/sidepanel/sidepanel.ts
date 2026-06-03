@@ -691,13 +691,18 @@ async function renderRun(): Promise<void> {
       ? ` — that's roughly <b>${eps} full episode${eps === 1 ? '' : 's'}</b> you didn't have to sit through.`
       : '.');
 
-  // recent-activity strip: a bar per day, lit when you skipped something
+  // recent-activity sparkline: a bar per day, height ∝ that day's skips
+  const counts = lastNDays(s, 14);
+  const max = Math.max(1, ...counts);
   runBars.replaceChildren();
-  for (const count of lastNDays(s, 14)) {
+  counts.forEach((count, i) => {
     const bar = document.createElement('div');
     bar.className = 'bar' + (count > 0 ? ' on' : '');
+    bar.style.height = count > 0 ? `${Math.max(10, Math.round((count / max) * 38))}px` : '5px';
+    const ago = counts.length - 1 - i;
+    bar.title = `${count} skip${count === 1 ? '' : 's'} · ${ago === 0 ? 'today' : ago === 1 ? 'yesterday' : `${ago}d ago`}`;
     runBars.appendChild(bar);
-  }
+  });
   runTotal.textContent = `${s.skips} skips total`;
   runSegments.textContent = String(s.skips);
   runShows.textContent = String(hist.length);

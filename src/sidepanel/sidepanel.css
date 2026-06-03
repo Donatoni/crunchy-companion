@@ -188,8 +188,8 @@ body {
 .run-time { font-size: 46px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.02; margin-top: 12px; background: linear-gradient(180deg, #ff9a52, #f0680f); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .run-desc { font-size: 13px; line-height: 1.5; color: var(--text-2); margin-top: 12px; }
 .run-desc b { color: var(--text); font-weight: 600; }
-.run-bars { display: flex; gap: 5px; margin-top: 18px; }
-.run-bars .bar { flex: 1; height: 30px; border-radius: 6px; background: var(--surface-3); }
+.run-bars { display: flex; align-items: flex-end; gap: 5px; height: 38px; margin-top: 18px; }
+.run-bars .bar { flex: 1; min-height: 5px; border-radius: 5px; background: var(--surface-3); }
 .run-bars .bar.on { background: linear-gradient(180deg, #ff9550, #f0680f); box-shadow: 0 2px 8px rgba(244,117,33,0.3); }
 .run-barlabel { display: flex; justify-content: space-between; margin-top: 9px; font: 500 10px var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); }
 .run-cards { display: flex; gap: 10px; margin-top: 18px; }
