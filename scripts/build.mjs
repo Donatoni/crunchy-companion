@@ -23,6 +23,9 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = resolve(root, 'dist');
 const r = (...p) => resolve(root, ...p);
 
+// Single source of truth for the version: package.json.
+const { version } = JSON.parse(await readFile(r('package.json'), 'utf8'));
+
 await rm(dist, { recursive: true, force: true });
 await mkdir(dist, { recursive: true });
 
@@ -71,7 +74,7 @@ const manifest = {
   name: 'Crunchy Companion',
   description:
     'Crunchyroll side panel: auto-skip intro/recap/outro/preview, auto-play next, and optional MyAnimeList sync.',
-  version: '0.1.0',
+  version,
   minimum_chrome_version: '114',
   // Pins the extension ID (jcfmdllkakmjkihgphmmimhiehcbbfei) so the OAuth
   // redirect URL stays constant and can be registered once in the MAL app.
