@@ -361,18 +361,25 @@ export async function getUserList(
   limit = 16,
 ): Promise<MalListItem[]> {
   const res = await fetch(
-    `${API}/users/@me/animelist?status=${status}&fields=list_status,num_episodes,main_picture&sort=list_updated_at&limit=${limit}`,
+    `${API}/users/@me/animelist?status=${status}&fields=list_status,num_episodes,main_picture,alternative_titles&sort=list_updated_at&limit=${limit}`,
     { headers: { Authorization: `Bearer ${access}` }, cache: 'no-store' },
   );
   if (!res.ok) throw new Error(`MAL HTTP ${res.status}`);
   const j = await res.json();
   return (j.data ?? []).map(
     (d: {
-      node: { id: number; title: string; main_picture?: { medium?: string }; num_episodes?: number };
+      node: {
+        id: number;
+        title: string;
+        alternative_titles?: { en?: string };
+        main_picture?: { medium?: string };
+        num_episodes?: number;
+      };
       list_status?: { num_episodes_watched?: number };
     }) => ({
       id: d.node.id,
-      title: d.node.title,
+      // Prefer the official English title; fall back to the romaji default.
+      title: d.node.alternative_titles?.en || d.node.title,
       picture: d.node.main_picture?.medium ?? null,
       total: d.node.num_episodes || null,
       watched: d.list_status?.num_episodes_watched ?? 0,
