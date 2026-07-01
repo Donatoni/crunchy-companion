@@ -131,6 +131,7 @@ body {
 .mal-nudge { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 14px; border-radius: 16px; cursor: pointer; background: var(--surface); border: 1px dashed var(--line-strong); color: var(--text); }
 .mal-nudge:hover { border-color: rgba(46,81,162,0.5); }
 .mal-badge { width: 38px; height: 38px; flex: 0 0 auto; border-radius: 10px; display: grid; place-items: center; background: var(--mal); color: #fff; font-weight: 700; font-size: 12px; }
+.mal-badge.g-badge { background: #fff; }
 .mal-nudge .nudge-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .mal-nudge .nudge-title { font-size: 13px; font-weight: 600; }
 .mal-nudge .nudge-sub { font-size: 11.5px; color: var(--text-3); margin-top: 2px; }
@@ -257,6 +258,7 @@ body {
 .set-radio-title { font-size: 13px; font-weight: 600; }
 .set-radio-desc { font-size: 11px; color: var(--text-3); line-height: 1.4; }
 .set-mal { display: flex; align-items: center; gap: 11px; padding: 12px; margin-bottom: 10px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); }
+.set-mal.flat { background: transparent; border: none; padding: 2px 4px; margin-bottom: 0; }
 .set-mal-main { flex: 1; min-width: 0; }
 .set-mal-title { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .set-mal-sub { font-size: 11px; color: var(--text-3); margin-top: 2px; }
