@@ -15,6 +15,7 @@ import { getSkipSegments } from './skip-api';
 import { attachSkipEngine } from './skip-engine';
 import { startDomSkip } from './dom-skip';
 import { attachAutoNext } from './autonext';
+import { attachAutoPip } from './auto-pip';
 import { attachProgress } from './progress';
 import { extractMeta } from './meta';
 import { startKeepWatching } from './keep-watching';
@@ -185,6 +186,10 @@ function startSession(ctx: EpisodeContext | null): void {
 
     teardown.push(
       attachAutoNext(video, () => settings.enabled && settings.autoNext).detach,
+    );
+
+    teardown.push(
+      attachAutoPip(video, () => settings.enabled && settings.autoPip).detach,
     );
 
     if (ctx) {

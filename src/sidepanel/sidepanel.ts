@@ -935,6 +935,7 @@ async function renderStats(): Promise<void> {
 // ── settings overlay ────────────────────────────────────────────────
 const settingsView = $('#settingsView');
 const setAutoNext = $<HTMLInputElement>('#set-autoNext');
+const setAutoPip = $<HTMLInputElement>('#set-autoPip');
 const setKeepWatching = $<HTMLInputElement>('#set-keepWatching');
 const setShowToast = $<HTMLInputElement>('#set-showToast');
 const setSkip = Object.fromEntries(
@@ -1014,6 +1015,7 @@ async function renderMalSettings(): Promise<void> {
 async function renderSettings(): Promise<void> {
   const s = await getSettings();
   setAutoNext.checked = s.autoNext;
+  setAutoPip.checked = s.autoPip;
   setKeepWatching.checked = s.keepWatching;
   setShowToast.checked = s.showToast;
   for (const k of SKIP_SEGMENTS) setSkip[k].checked = s.skip[k];
@@ -1025,6 +1027,7 @@ function openSettings(): void {
   void renderSettings();
 }
 setAutoNext.addEventListener('change', () => patchSettings({ autoNext: setAutoNext.checked }));
+setAutoPip.addEventListener('change', () => patchSettings({ autoPip: setAutoPip.checked }));
 setKeepWatching.addEventListener('change', () => patchSettings({ keepWatching: setKeepWatching.checked }));
 setShowToast.addEventListener('change', () => patchSettings({ showToast: setShowToast.checked }));
 for (const k of SKIP_SEGMENTS) {

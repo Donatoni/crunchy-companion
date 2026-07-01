@@ -10,6 +10,8 @@ export interface Settings {
   skip: Record<SkipType, boolean>;
   /** Auto-play the next episode when one finishes. */
   autoNext: boolean;
+  /** Pop the video into Picture-in-Picture when you switch away from the tab. */
+  autoPip: boolean;
   /** Dismiss "are you still watching?" / profile prompts to keep playback going. */
   keepWatching: boolean;
   /** Show a "Skipped X — Undo" toast after each skip. */
@@ -36,6 +38,7 @@ export const DEFAULT_SETTINGS: Settings = {
     preview: true,
   },
   autoNext: true,
+  autoPip: false,
   keepWatching: true,
   showToast: true,
   mode: 'seek',
