@@ -497,7 +497,16 @@ function setScoreControl(value: number): void {
 function renderReconcile(): void {
   const cr = currentMeta?.episode ?? null;
   const mal = malResp?.watched ?? null;
-  const show = !!(malResp?.ok && malResp?.connected) && cr != null && cr > 0 && mal != null && cr !== mal;
+  // CR ahead by exactly 1 is the natural "watching the next episode right now"
+  // state — progress-sync pushes it to MAL after ~30s of playback — so prompting
+  // would nag on every episode (and on E1 of a show you haven't started, where
+  // MAL is rightly 0). Only offer forward catch-up for gaps of 2+.
+  // Backward: don't offer to LOWER a completed entry — opening an old episode of
+  // a finished show is a casual revisit, not a sign your count is wrong.
+  const crAhead = cr != null && mal != null && cr > mal + 1;
+  const malAhead =
+    cr != null && mal != null && mal > cr && malResp?.status !== 'completed';
+  const show = !!(malResp?.ok && malResp?.connected) && cr != null && cr > 0 && (crAhead || malAhead);
   malReconcile.hidden = !show;
   if (!show || cr == null || mal == null) return;
 
