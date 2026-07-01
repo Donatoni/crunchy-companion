@@ -191,6 +191,7 @@ async function loadRecs(): Promise<void> {
     const r = await requestRecommendations();
     if (!r.ok || !r.items.length) return;
     recsLabel.textContent = r.seedTitle ? `Because you watched ${r.seedTitle}` : 'Recommended for you';
+    recsLabel.title = recsLabel.textContent; // full title on hover (label is one-line clamped)
     recsRail.replaceChildren();
     for (const it of r.items) {
       const card = posterCard(it.picture, it.title, it.type ?? '');

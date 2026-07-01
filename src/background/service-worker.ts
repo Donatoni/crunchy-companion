@@ -303,10 +303,11 @@ async function onEpisodeWatched(tabId: number, episodeId: string): Promise<void>
 }
 
 /**
- * Pick the show to seed "because you watched…" recommendations from: the most
- * recent history entry we can map to a MAL id. Prefers already-cached mappings
- * (no network); only if none are cached does it resolve the single latest entry,
- * so this never fans out a search per history item.
+ * Pick the show to seed "because you watched…" recommendations from: a RANDOM
+ * history entry we can already map to a MAL id, so the rail varies between
+ * panel opens instead of always reflecting the most recent show. Only when no
+ * mapping is cached yet does it resolve the single latest entry, so this never
+ * fans out a search per history item.
  */
 async function pickRecommendationSeed(
   access: string | null,
@@ -314,9 +315,13 @@ async function pickRecommendationSeed(
   const history = await getHistory();
   if (!history.length) return null;
   const mappings = await getMappings(); // one storage read, not one per entry
+  const candidates: Array<{ animeId: number; title: string }> = [];
   for (const h of history) {
     const m = mappings[seriesKey({ series: h.series, season: h.season })];
-    if (m) return { animeId: m.mediaId, title: h.series };
+    if (m) candidates.push({ animeId: m.mediaId, title: h.series });
+  }
+  if (candidates.length) {
+    return candidates[Math.floor(Math.random() * candidates.length)];
   }
   const latest = history[0];
   const mapping = await resolveMapping(access, {

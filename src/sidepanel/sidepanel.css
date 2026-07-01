@@ -78,6 +78,8 @@ body {
 .section { padding: 16px; border-top: 1px solid var(--line); }
 .sec-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 13px; }
 .sec-label { font: 600 11px var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-3); }
+/* "Because you watched <title>" can be arbitrarily long — clamp to one line. */
+#recsLabel { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .synced { display: inline-flex; align-items: center; gap: 5px; font: 500 10px var(--mono); color: var(--green); letter-spacing: 0.06em; }
 .synced.muted { color: var(--text-3); }
 .synced .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
