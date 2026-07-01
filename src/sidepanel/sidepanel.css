@@ -311,21 +311,6 @@ body {
 .reconcile.caution .rcn-ic { background: var(--surface-3); color: var(--text-2); }
 .reconcile.caution .rcn-cta { background: transparent; border: 1px solid var(--line-strong); color: var(--text-2); }
 
-/* "rate what you finished" reminder cards (home dashboard) */
-.rate-card { background: var(--surface); border: 1px solid rgba(46,81,162,0.35); border-radius: 14px; padding: 13px; margin-bottom: 10px; }
-.rate-head { display: flex; align-items: center; gap: 9px; }
-.rate-title { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rate-dismiss { flex: 0 0 auto; width: 26px; height: 26px; display: grid; place-items: center; border: none; background: transparent; color: var(--text-3); cursor: pointer; border-radius: 7px; }
-.rate-dismiss:hover { background: rgba(255,255,255,0.06); color: var(--text); }
-.rate-prompt { font-size: 12px; color: var(--text-2); margin: 8px 0 10px; }
-.rate-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
-.rate-cell { height: 30px; border-radius: 7px; border: 1px solid var(--line); cursor: pointer; font: 600 12px var(--mono); color: var(--text-2); background: var(--surface-2); transition: background 0.12s, color 0.12s, border-color 0.12s; }
-.rate-cell:hover:not(:disabled) { background: var(--accent-dim); border-color: rgba(244,117,33,0.5); color: var(--accent-bright); }
-.rate-cell:disabled { opacity: 0.5; cursor: default; }
-.rate-err { font-size: 11.5px; color: #f0596b; margin-top: 8px; }
-.rate-link { display: inline-block; margin-top: 10px; font: 600 11.5px var(--sans); color: #8aa6ff; text-decoration: none; }
-.rate-link:hover { text-decoration: underline; }
-
 /* ── loading skeletons ─────────────────────────────────────────────── */
 @keyframes skel-pulse {
   0%, 100% { opacity: 0.55; }

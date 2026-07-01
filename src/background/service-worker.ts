@@ -32,7 +32,6 @@ import {
 import { getSession } from '@/shared/supabase';
 import { handleStorageChange, syncNow } from '@/shared/sync';
 import { getHistory } from '@/shared/history';
-import { addPendingRating } from '@/shared/reminders';
 import { matchScore, normalizeTitle } from '@/shared/mal-match';
 
 const CLOUD_SYNC_ALARM = 'cloud-sync';
@@ -41,6 +40,8 @@ const CLOUD_SYNC_ALARM = 'cloud-sync';
 chrome.runtime.onInstalled.addListener(async () => {
   const current = await chrome.storage.sync.get('settings');
   if (!current.settings) await saveSettings(DEFAULT_SETTINGS);
+  // Removed feature (rating reminders) — clear any queue left by old versions.
+  await chrome.storage.local.remove('pendingRatings');
 });
 
 // Periodic cloud-sync heartbeat (also catches changes made while a device was
@@ -289,13 +290,7 @@ async function onEpisodeWatched(tabId: number, episodeId: string): Promise<void>
 
     if (justCompleted) {
       log('watched: series completed', mapping.title);
-      // No score yet → queue a rating reminder for the side panel to surface.
-      if (!current?.score) {
-        await addPendingRating({ animeId: mapping.mediaId, title: mapping.title, at: Date.now() });
-        toast(tabId, `Finished ${mapping.title} — marked Completed. Rate it in the side panel ★`);
-      } else {
-        toast(tabId, `Finished ${mapping.title} — marked Completed on MyAnimeList ✓`);
-      }
+      toast(tabId, `Finished ${mapping.title} — marked Completed on MyAnimeList ✓`);
     } else if (finishedRewatch) {
       toast(tabId, `Rewatch complete: ${mapping.title} ✓`);
     } else {
@@ -434,17 +429,6 @@ chrome.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendRespo
         });
         sendResponse({ ok: items.length > 0, seedTitle: seed.title, items });
       })().catch(() => sendResponse({ ok: false, items: [] }));
-      return true; // async response
-    }
-    case 'RATE_ANIME': {
-      (async () => {
-        const access = await validAccessToken();
-        if (!access) return sendResponse({ ok: false, error: 'not connected' });
-        await setMyListStatus(access, message.animeId, { score: message.score });
-        sendResponse({ ok: true });
-      })().catch((err) =>
-        sendResponse({ ok: false, error: err instanceof Error ? err.message : 'error' }),
-      );
       return true; // async response
     }
     case 'SYNC_NOW': {

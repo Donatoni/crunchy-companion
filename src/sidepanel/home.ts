@@ -1,17 +1,11 @@
 /**
  * Idle / home dashboard: skip-stats "run" card, resume card, jump-back-in rail,
- * rating reminders, MAL watching rail, seasonal trending, and the
- * "because you watched…" recommendations rail.
+ * MAL watching rail, seasonal trending, and the "because you watched…"
+ * recommendations rail.
  */
-import {
-  requestMyList,
-  requestSeasonal,
-  requestRecommendations,
-  rateAnime,
-} from '@/shared/messages';
+import { requestMyList, requestSeasonal, requestRecommendations } from '@/shared/messages';
 import { formatSaved, getStats, lastNDays } from '@/shared/stats';
 import { clearHistory, getHistory } from '@/shared/history';
-import { getPendingRatings, removePendingRating } from '@/shared/reminders';
 import {
   $,
   makeActivatable,
@@ -42,8 +36,6 @@ const seasonalRail = $('#seasonalRail');
 const recsSection = $('#recsSection');
 const recsRail = $('#recsRail');
 const recsLabel = $('#recsLabel');
-const rateSection = $('#rateSection');
-const rateList = $('#rateList');
 
 [idleHistory, myListRail, seasonalRail, recsRail].forEach(makeRailScrollable);
 
@@ -125,95 +117,11 @@ $('#idle-clear').addEventListener('click', async () => {
   await renderIdleHistory();
 });
 
-// ── rate what you finished (scoring reminders) ──────────────────────
-/**
- * Surface the "you finished X — rate it" reminders the service worker queues when
- * MAL auto-completes a series you hadn't scored. A quick 1–10 picker writes the
- * score straight to MAL (by anime id) and dequeues the reminder; the ✕ dismisses
- * it without rating.
- */
-export async function renderRateReminders(): Promise<void> {
-  const reminders = await getPendingRatings();
-  rateList.replaceChildren();
-  rateSection.hidden = reminders.length === 0;
-  for (const rem of reminders) {
-    const card = document.createElement('div');
-    card.className = 'rate-card';
-
-    const head = document.createElement('div');
-    head.className = 'rate-head';
-    const badge = document.createElement('span');
-    badge.className = 'mal-badge';
-    badge.textContent = 'MAL';
-    const title = document.createElement('span');
-    title.className = 'rate-title';
-    title.textContent = rem.title;
-    title.title = rem.title;
-    const dismiss = document.createElement('button');
-    dismiss.type = 'button';
-    dismiss.className = 'rate-dismiss';
-    dismiss.setAttribute('aria-label', `Dismiss rating reminder for ${rem.title}`);
-    dismiss.innerHTML =
-      '<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
-    dismiss.addEventListener('click', async () => {
-      await removePendingRating(rem.animeId);
-      await renderRateReminders();
-    });
-    head.append(badge, title, dismiss);
-
-    const prompt = document.createElement('div');
-    prompt.className = 'rate-prompt';
-    prompt.textContent = 'You finished this — how was it?';
-
-    const err = document.createElement('div');
-    err.className = 'rate-err';
-    err.hidden = true;
-
-    const gridEl = document.createElement('div');
-    gridEl.className = 'rate-grid';
-    for (let n = 1; n <= 10; n++) {
-      const cell = document.createElement('button');
-      cell.type = 'button';
-      cell.className = 'rate-cell';
-      cell.textContent = String(n);
-      cell.addEventListener('click', async () => {
-        gridEl.querySelectorAll('button').forEach((b) => (b.disabled = true));
-        err.hidden = true;
-        try {
-          const res = await rateAnime(rem.animeId, n);
-          if (res?.ok) {
-            await removePendingRating(rem.animeId);
-            await renderRateReminders();
-          } else {
-            throw new Error(res?.error ?? 'failed');
-          }
-        } catch {
-          err.textContent = "Couldn't save that rating — try again.";
-          err.hidden = false;
-          gridEl.querySelectorAll('button').forEach((b) => (b.disabled = false));
-        }
-      });
-      gridEl.appendChild(cell);
-    }
-
-    const link = document.createElement('a');
-    link.className = 'rate-link';
-    link.href = `https://myanimelist.net/anime/${rem.animeId}`;
-    link.target = '_blank';
-    link.rel = 'noopener';
-    link.textContent = 'Open on MyAnimeList →';
-
-    card.append(head, prompt, gridEl, err, link);
-    rateList.appendChild(card);
-  }
-}
-
 /** Everything the idle view shows from local data (no network). */
 export function renderIdleAll(): void {
   void renderRun();
   void renderResume();
   void renderIdleHistory();
-  void renderRateReminders();
 }
 
 // ── network sections (once per panel session) ───────────────────────

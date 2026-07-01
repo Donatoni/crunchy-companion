@@ -14,7 +14,6 @@ import {
   loadHomeContent,
   renderIdleAll,
   renderIdleHistory,
-  renderRateReminders,
   renderResume,
   renderRun,
 } from './home';
@@ -106,8 +105,6 @@ chrome.storage.onChanged.addListener((changes, area) => {
     void renderResume();
     void renderIdleHistory();
   }
-  // A series finished elsewhere (progress-sync) queued a rating reminder.
-  if (changes.pendingRatings) void renderRateReminders();
 });
 
 // ── boot ────────────────────────────────────────────────────────────
