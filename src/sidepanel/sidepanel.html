@@ -41,6 +41,11 @@
           <div class="sec-head"><span class="sec-label">Your list</span><span class="synced" id="malSynced" hidden><span class="dot"></span>SYNCED</span></div>
 
           <div class="list-card" id="malCard" hidden>
+            <button class="reconcile" id="malReconcile" hidden>
+              <span class="rcn-ic" id="reconcileIc">↑</span>
+              <span class="rcn-body"><span class="rcn-title" id="reconcileTitle"></span><span class="rcn-sub" id="reconcileSub"></span></span>
+              <span class="rcn-cta" id="reconcileCta">Update</span>
+            </button>
             <div class="prog-top"><div class="prog-now"><span id="progNow">0</span> <span class="of" id="progTotal"></span></div><div class="prog-pct" id="progPct"></div></div>
             <div class="bar"><i id="progBar"></i></div>
             <div class="ep-row">
@@ -98,6 +103,11 @@
 
       <!-- ───────── Idle / home dashboard (concept C · Your run) ───────── -->
       <div id="idleView" hidden>
+        <section class="section rate-section" id="rateSection" hidden>
+          <div class="sec-head"><span class="sec-label">Rate what you finished</span></div>
+          <div id="rateList"></div>
+        </section>
+
         <div class="home-run">
           <span class="run-eyebrow"><span class="dot"></span>Your run so far</span>
           <div class="run-time" id="runTime">0m</div>
@@ -134,6 +144,11 @@
           <div class="sec-head"><span class="sec-label">Trending this season</span></div>
           <div class="rail" id="seasonalRail"></div>
         </section>
+
+        <section class="section" id="recsSection" hidden>
+          <div class="sec-head"><span class="sec-label" id="recsLabel">Recommended for you</span></div>
+          <div class="rail" id="recsRail"></div>
+        </section>
       </div>
     </div>
 
@@ -163,6 +178,7 @@
           <div class="set-row"><div class="set-row-main"><div class="set-row-title">Recap</div><div class="set-row-desc">"Previously on…" catch-up segments.</div></div><label class="switch sm"><input type="checkbox" id="set-skip-recap" /><span class="slider"></span></label></div>
           <div class="set-row"><div class="set-row-main"><div class="set-row-title">Outro / Credits</div><div class="set-row-desc">The ending theme / ED.</div></div><label class="switch sm"><input type="checkbox" id="set-skip-credits" /><span class="slider"></span></label></div>
           <div class="set-row"><div class="set-row-main"><div class="set-row-title">Next-episode preview</div><div class="set-row-desc">The teaser shown after the credits.</div></div><label class="switch sm"><input type="checkbox" id="set-skip-preview" /><span class="slider"></span></label></div>
+          <div class="set-row"><div class="set-row-main"><div class="set-row-title">Skip only after episode 1</div><div class="set-row-desc">Play everything on the first episode of a season, then auto-skip from episode 2 on.</div></div><label class="switch sm"><input type="checkbox" id="set-skipFirst" /><span class="slider"></span></label></div>
         </div>
         <div class="set-section">
           <div class="sec-label">Playback</div>

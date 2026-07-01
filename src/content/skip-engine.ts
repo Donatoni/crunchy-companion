@@ -21,6 +21,8 @@ export function attachSkipEngine(
   video: HTMLVideoElement,
   segments: SkipSegment[],
   getSettings: () => Settings,
+  /** Extra gate (e.g. "skip only after episode 1"): when false, no segment is skipped. */
+  allowSkip: () => boolean = () => true,
 ): SkipEngine {
   if (segments.length === 0) {
     return { detach: () => {} };
@@ -33,6 +35,7 @@ export function attachSkipEngine(
   const onTimeUpdate = () => {
     const settings = getSettings();
     if (!settings.enabled || settings.mode !== 'seek') return;
+    if (!allowSkip()) return;
 
     const t = video.currentTime;
     for (const seg of segments) {

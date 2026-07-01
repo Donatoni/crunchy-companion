@@ -95,6 +95,13 @@ onSettingsChanged((s) => (settings = s));
 // / profile prompts so auto-play sessions aren't interrupted.
 startKeepWatching(() => settings.enabled && settings.keepWatching);
 
+// Episode number for the show currently playing (from the scraped metadata),
+// reset per session. Used by the "skip only after episode 1" gate. `null` while
+// unknown — the gate treats unknown as "allow skipping" so a slow/absent scrape
+// degrades to normal behaviour rather than blocking skips everywhere.
+let currentEpisode: number | null = null;
+const skipAllowed = () => !(settings.skipAfterFirstOnly && currentEpisode === 1);
+
 let teardown: Array<() => void> = [];
 function teardownSession(): void {
   for (const fn of teardown) {
@@ -116,6 +123,8 @@ function captureEpisode(ctx: EpisodeContext): void {
     if (parseEpisode()?.episodeId !== ctx.episodeId) return;
     const meta = extractMeta(ctx.episodeId);
     if (meta) {
+      // Feed the "skip only after episode 1" gate as soon as the number is known.
+      currentEpisode = meta.episode;
       // On SPA auto-advance the series name is already present while the
       // on-screen episode number still shows the PREVIOUS episode for a beat.
       // Re-send whenever the scraped episode identity changes so the worker
@@ -148,6 +157,8 @@ function captureEpisode(ctx: EpisodeContext): void {
 
 function startSession(ctx: EpisodeContext | null): void {
   teardownSession();
+  // New episode: forget the previous episode's number until the fresh scrape lands.
+  currentEpisode = null;
 
   // Top frame: scrape episode metadata for the tracker + history. The page's
   // JSON-LD lands a beat after navigation, so poll until it's present.
@@ -177,12 +188,15 @@ function startSession(ctx: EpisodeContext | null): void {
     const apiActive = () => settings.mode === 'seek' && segments.length > 0;
 
     if (segments.length > 0) {
-      teardown.push(attachSkipEngine(video, segments, () => settings).detach);
+      teardown.push(attachSkipEngine(video, segments, () => settings, skipAllowed).detach);
     }
 
     teardown.push(
       startDomSkip(
-        () => settings.enabled && (settings.mode === 'click' || !apiActive()),
+        () =>
+          settings.enabled &&
+          skipAllowed() &&
+          (settings.mode === 'click' || !apiActive()),
       ).stop,
     );
 

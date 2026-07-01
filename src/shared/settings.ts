@@ -8,6 +8,11 @@ export interface Settings {
   enabled: boolean;
   /** Per-segment auto-skip toggles. */
   skip: Record<SkipType, boolean>;
+  /**
+   * When true, don't auto-skip anything on episode 1 (of a season) — so the
+   * opening plays the first time through — and skip normally from episode 2 on.
+   */
+  skipAfterFirstOnly: boolean;
   /** Auto-play the next episode when one finishes. */
   autoNext: boolean;
   /** Pop the video into Picture-in-Picture when you switch away from the tab. */
@@ -37,6 +42,7 @@ export const DEFAULT_SETTINGS: Settings = {
     credits: true,
     preview: true,
   },
+  skipAfterFirstOnly: false,
   autoNext: true,
   autoPip: false,
   keepWatching: true,

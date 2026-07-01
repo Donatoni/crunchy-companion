@@ -131,6 +131,29 @@ export interface SeasonalResponse {
   items: SeasonalItem[];
 }
 
+/** Side panel -> worker: "because you watched…" picks seeded from your history. */
+export interface RecommendationsRequest {
+  type: 'GET_RECOMMENDATIONS';
+}
+export interface RecommendationsResponse {
+  ok: boolean;
+  /** The show the picks are based on, for the section label. */
+  seedTitle?: string;
+  items: SeasonalItem[];
+}
+
+/** Side panel -> worker: set the user's score for an anime by MAL id (rating reminder). */
+export interface RateAnimeRequest {
+  type: 'RATE_ANIME';
+  animeId: number;
+  /** 1–10, or 0 to clear. */
+  score: number;
+}
+export interface RateAnimeResponse {
+  ok: boolean;
+  error?: string;
+}
+
 /** Popup -> worker: edit the user's MAL list entry for the current show. */
 export interface SetMalStatusRequest {
   type: 'SET_MAL_STATUS';
@@ -165,6 +188,8 @@ export type RuntimeMessage =
   | MalReviewsRequest
   | MyListRequest
   | SeasonalRequest
+  | RecommendationsRequest
+  | RateAnimeRequest
   | SyncNowRequest;
 
 /** Promise wrapper around chrome.runtime.sendMessage for skip-events. */
@@ -254,6 +279,20 @@ export function requestMyList(status: string): Promise<MyListResponse> {
 export function requestSeasonal(): Promise<SeasonalResponse> {
   return chrome.runtime.sendMessage<SeasonalRequest, SeasonalResponse>({
     type: 'GET_SEASONAL',
+  });
+}
+
+export function requestRecommendations(): Promise<RecommendationsResponse> {
+  return chrome.runtime.sendMessage<RecommendationsRequest, RecommendationsResponse>({
+    type: 'GET_RECOMMENDATIONS',
+  });
+}
+
+export function rateAnime(animeId: number, score: number): Promise<RateAnimeResponse> {
+  return chrome.runtime.sendMessage<RateAnimeRequest, RateAnimeResponse>({
+    type: 'RATE_ANIME',
+    animeId,
+    score,
   });
 }
 

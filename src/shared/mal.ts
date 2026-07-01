@@ -395,6 +395,38 @@ export interface SeasonalItem {
   type: string | null;
 }
 
+/**
+ * "Because you watched X" picks via Jikan's per-anime recommendations (MAL's own
+ * v2 API has no recommendations endpoint). Keyed by MAL id, ordered by how many
+ * users made the recommendation. No auth. Best-effort — callers tolerate [].
+ */
+export async function getRecommendations(animeId: number): Promise<SeasonalItem[]> {
+  const res = await fetch(`https://api.jikan.moe/v4/anime/${animeId}/recommendations`);
+  if (!res.ok) throw new Error(`Jikan HTTP ${res.status}`);
+  const j = await res.json();
+  return (j.data ?? [])
+    .slice(0, 16)
+    .map(
+      (d: {
+        entry?: {
+          mal_id: number;
+          title: string;
+          images?: { jpg?: { image_url?: string; large_image_url?: string } };
+        };
+        votes?: number;
+      }) => ({
+        id: d.entry?.mal_id ?? 0,
+        title: d.entry?.title ?? '',
+        picture:
+          d.entry?.images?.jpg?.large_image_url ?? d.entry?.images?.jpg?.image_url ?? null,
+        // Recommendations carry no score; reuse the vote count as a soft signal.
+        score: null,
+        type: d.votes ? `${d.votes} rec${d.votes === 1 ? '' : 's'}` : null,
+      }),
+    )
+    .filter((r: SeasonalItem) => r.id && r.title && r.picture);
+}
+
 /** Popular currently-airing shows this season, via Jikan (no auth). */
 export async function getSeasonal(): Promise<SeasonalItem[]> {
   const res = await fetch('https://api.jikan.moe/v4/seasons/now?sfw=true&limit=25');

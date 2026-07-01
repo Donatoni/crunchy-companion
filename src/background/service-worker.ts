@@ -20,6 +20,7 @@ import {
   getAnimeDetails,
   getAnimeStatus,
   getCharacters,
+  getRecommendations,
   getReviews,
   getSeasonal,
   getUserList,
@@ -29,6 +30,8 @@ import {
 } from '@/shared/mal';
 import { getSession } from '@/shared/supabase';
 import { handleStorageChange, syncNow } from '@/shared/sync';
+import { getHistory } from '@/shared/history';
+import { addPendingRating } from '@/shared/reminders';
 
 const CLOUD_SYNC_ALARM = 'cloud-sync';
 
@@ -314,15 +317,32 @@ async function onEpisodeWatched(tabId: number, episodeId: string): Promise<void>
     // Non-destructive: only ever move progress FORWARD. Prevents a casual
     // rewatch / jumping to an earlier episode from dragging your count down.
     const watched = Math.max(current?.watched ?? 0, meta.episode);
+    const reachedFinale = total != null && watched >= total;
 
-    const patch: { num_watched_episodes: number; status?: string } = {
-      num_watched_episodes: watched,
-    };
+    const patch: {
+      num_watched_episodes: number;
+      status?: string;
+      is_rewatching?: boolean;
+      num_times_rewatched?: number;
+    } = { num_watched_episodes: watched };
+
+    // What happened, for the toast + rating reminder after the write lands.
+    let finishedRewatch = false;
+    let justCompleted = false;
+
     if (current?.rewatching) {
-      // Rewatch in progress: bump the episode only; keep completed +
-      // is_rewatching (MAL finalizes num_times_rewatched at the total).
-    } else if (total != null && watched >= total) {
+      // Rewatch in progress: bump the episode. When it reaches the finale,
+      // finalize — clear is_rewatching and increment the rewatch count — instead
+      // of leaving the entry stuck mid-rewatch forever.
+      if (reachedFinale) {
+        patch.is_rewatching = false;
+        patch.num_times_rewatched = (current.rewatchCount ?? 0) + 1;
+        finishedRewatch = true;
+      }
+    } else if (reachedFinale) {
       patch.status = 'completed';
+      // First time crossing the finale (not already completed) → offer a rating.
+      justCompleted = current?.status !== 'completed';
     } else if (current?.status !== 'completed') {
       // Actively watching, not finished, not already completed → watching.
       // Don't downgrade a completed entry or override on-hold/dropped→completed.
@@ -333,14 +353,56 @@ async function onEpisodeWatched(tabId: number, episodeId: string): Promise<void>
       `"${mapping.title}" (#${mapping.mediaId})`,
       `${current?.watched ?? 0} -> ${watched}`,
       patch.status ? `status=${patch.status}` : '',
+      finishedRewatch ? 'rewatch-finalized' : '',
     );
     await setMyListStatus(access, mapping.mediaId, patch);
     log('watched: MAL updated OK', `${mapping.title} • episode ${watched}`);
-    toast(tabId, `MyAnimeList updated: ${mapping.title} • episode ${watched}`);
+
+    if (justCompleted) {
+      log('watched: series completed', mapping.title);
+      // No score yet → queue a rating reminder for the side panel to surface.
+      if (!current?.score) {
+        await addPendingRating({ animeId: mapping.mediaId, title: mapping.title, at: Date.now() });
+        toast(tabId, `Finished ${mapping.title} — marked Completed. Rate it in the side panel ★`);
+      } else {
+        toast(tabId, `Finished ${mapping.title} — marked Completed on MyAnimeList ✓`);
+      }
+    } else if (finishedRewatch) {
+      toast(tabId, `Rewatch complete: ${mapping.title} ✓`);
+    } else {
+      toast(tabId, `MyAnimeList updated: ${mapping.title} • episode ${watched}`);
+    }
   } catch (err) {
     log('watched: MAL sync FAILED', err);
     toast(tabId, `Crunchyroll Companion: MAL sync failed (${err instanceof Error ? err.message : 'error'})`);
   }
+}
+
+/**
+ * Pick the show to seed "because you watched…" recommendations from: the most
+ * recent history entry we can map to a MAL id. Prefers already-cached mappings
+ * (no network); only if none are cached does it resolve the single latest entry,
+ * so this never fans out a search per history item.
+ */
+async function pickRecommendationSeed(
+  access: string | null,
+): Promise<{ animeId: number; title: string } | null> {
+  const history = await getHistory();
+  if (!history.length) return null;
+  for (const h of history) {
+    const m = await getMapping(seriesKey({ series: h.series, season: h.season }));
+    if (m) return { animeId: m.mediaId, title: h.series };
+  }
+  const latest = history[0];
+  const mapping = await resolveMapping(access, {
+    episodeId: latest.episodeId,
+    series: latest.series,
+    season: latest.season,
+    episode: latest.episode,
+    episodeTitle: latest.episodeTitle,
+    thumbnail: latest.thumbnail,
+  });
+  return mapping ? { animeId: mapping.mediaId, title: latest.series } : null;
 }
 
 // ---- message router ---------------------------------------------------------
@@ -422,6 +484,30 @@ chrome.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendRespo
       getSeasonal()
         .then((items) => sendResponse({ ok: true, items }))
         .catch(() => sendResponse({ ok: false, items: [] }));
+      return true; // async response
+    }
+    case 'GET_RECOMMENDATIONS': {
+      (async () => {
+        const access = await validAccessToken();
+        const seed = await pickRecommendationSeed(access);
+        if (!seed) return sendResponse({ ok: false, items: [] });
+        const recs = await getRecommendations(seed.animeId).catch(() => []);
+        // Drop shows already in the user's history — recommend the unseen.
+        const seen = new Set((await getHistory()).map((h) => normalizeTitle(h.series)));
+        const items = recs.filter((r) => !seen.has(normalizeTitle(r.title)));
+        sendResponse({ ok: items.length > 0, seedTitle: seed.title, items });
+      })().catch(() => sendResponse({ ok: false, items: [] }));
+      return true; // async response
+    }
+    case 'RATE_ANIME': {
+      (async () => {
+        const access = await validAccessToken();
+        if (!access) return sendResponse({ ok: false, error: 'not connected' });
+        await setMyListStatus(access, message.animeId, { score: message.score });
+        sendResponse({ ok: true });
+      })().catch((err) =>
+        sendResponse({ ok: false, error: err instanceof Error ? err.message : 'error' }),
+      );
       return true; // async response
     }
     case 'SYNC_NOW': {

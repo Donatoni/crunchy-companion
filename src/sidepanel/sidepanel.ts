@@ -13,8 +13,11 @@ import {
   requestMalReviews,
   requestMyList,
   requestSeasonal,
+  requestRecommendations,
+  rateAnime,
   requestSyncNow,
 } from '@/shared/messages';
+import { getPendingRatings, removePendingRating } from '@/shared/reminders';
 import { getSession, signInWithGoogle, signOut } from '@/shared/supabase';
 import { getSyncMeta } from '@/shared/sync';
 import type {
@@ -106,6 +109,11 @@ const statusDot = $('#statusDot');
 const scoreBtn = $<HTMLButtonElement>('#scoreBtn');
 const scoreMenu = $('#scoreMenu');
 const malLink = $<HTMLAnchorElement>('#malLink');
+const malReconcile = $<HTMLButtonElement>('#malReconcile');
+const reconcileIc = $('#reconcileIc');
+const reconcileTitle = $('#reconcileTitle');
+const reconcileSub = $('#reconcileSub');
+const reconcileCta = $('#reconcileCta');
 
 const seasonsSection = $('#seasonsSection');
 const seasonsRail = $('#seasonsRail');
@@ -130,6 +138,11 @@ const myListSection = $('#myListSection');
 const myListRail = $('#myListRail');
 const seasonalSection = $('#seasonalSection');
 const seasonalRail = $('#seasonalRail');
+const recsSection = $('#recsSection');
+const recsRail = $('#recsRail');
+const recsLabel = $('#recsLabel');
+const rateSection = $('#rateSection');
+const rateList = $('#rateList');
 
 // ── helpers ─────────────────────────────────────────────────────────
 function metaKey(m: TrackerMeta): string {
@@ -226,7 +239,9 @@ function makeRailScrollable(rail: HTMLElement): void {
   );
 }
 
-[seasonsRail, charactersRail, idleHistory, myListRail, seasonalRail].forEach(makeRailScrollable);
+[seasonsRail, charactersRail, idleHistory, myListRail, seasonalRail, recsRail].forEach(
+  makeRailScrollable,
+);
 
 // ── hero ────────────────────────────────────────────────────────────
 function renderHero(): void {
@@ -473,6 +488,31 @@ function setScoreControl(value: number): void {
   }
 }
 
+/**
+ * Two-way progress reconciliation: when the episode you're on in Crunchyroll and
+ * the count on MyAnimeList disagree, surface a one-tap fix. Forward (CR ahead) is
+ * the common catch-up case; backward (MAL ahead) is flagged as a caution since it
+ * would lower your MAL count. Hidden when there's nothing to reconcile.
+ */
+function renderReconcile(): void {
+  const cr = currentMeta?.episode ?? null;
+  const mal = malResp?.watched ?? null;
+  const show = !!(malResp?.ok && malResp?.connected) && cr != null && cr > 0 && mal != null && cr !== mal;
+  malReconcile.hidden = !show;
+  if (!show || cr == null || mal == null) return;
+
+  const ahead = cr > mal;
+  reconcileIc.textContent = ahead ? '↑' : '↓';
+  reconcileTitle.textContent = ahead ? 'Crunchyroll is ahead' : 'MyAnimeList is ahead';
+  reconcileSub.textContent = ahead
+    ? `You're on E${cr} · MAL has ${mal}`
+    : `MAL has ${mal} · you're on E${cr}`;
+  reconcileCta.textContent = ahead ? `Update to E${cr}` : `Set to E${cr}`;
+  // Backward edits lower the count — mark them cautionary.
+  malReconcile.classList.toggle('caution', !ahead);
+  malReconcile.onclick = () => void saveMal(episodeEditPatch(cr));
+}
+
 function applyMal(r: MalStatusResponse | undefined): void {
   malResp = r;
   malErr.hidden = true;
@@ -512,6 +552,7 @@ function applyMal(r: MalStatusResponse | undefined): void {
     epPlus.disabled = malTotal != null && watched >= malTotal;
     setStatusControl(r.status ?? 'watching');
     setScoreControl(r.score ?? 0);
+    renderReconcile();
   } else if (!r?.connected) {
     // Not signed in — invite to connect (details above still render).
     malCard.hidden = true;
@@ -750,6 +791,7 @@ async function refresh(): Promise<void> {
       void renderRun();
       void renderResume();
       void renderIdleHistory();
+      void renderRateReminders();
     }
     loadHomeContent();
   }
@@ -881,12 +923,96 @@ async function renderResume(): Promise<void> {
   resumeCard.onclick = () => void openEpisode(latest.url);
 }
 
+// ── rate what you finished (scoring reminders) ──────────────────────
+/**
+ * Surface the "you finished X — rate it" reminders the service worker queues when
+ * MAL auto-completes a series you hadn't scored. A quick 1–10 picker writes the
+ * score straight to MAL (by anime id) and dequeues the reminder; the ✕ dismisses
+ * it without rating.
+ */
+async function renderRateReminders(): Promise<void> {
+  const reminders = await getPendingRatings();
+  rateList.replaceChildren();
+  rateSection.hidden = reminders.length === 0;
+  for (const rem of reminders) {
+    const card = document.createElement('div');
+    card.className = 'rate-card';
+
+    const head = document.createElement('div');
+    head.className = 'rate-head';
+    const badge = document.createElement('span');
+    badge.className = 'mal-badge';
+    badge.textContent = 'MAL';
+    const title = document.createElement('span');
+    title.className = 'rate-title';
+    title.textContent = rem.title;
+    title.title = rem.title;
+    const dismiss = document.createElement('button');
+    dismiss.type = 'button';
+    dismiss.className = 'rate-dismiss';
+    dismiss.setAttribute('aria-label', `Dismiss rating reminder for ${rem.title}`);
+    dismiss.innerHTML =
+      '<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+    dismiss.addEventListener('click', async () => {
+      await removePendingRating(rem.animeId);
+      await renderRateReminders();
+    });
+    head.append(badge, title, dismiss);
+
+    const prompt = document.createElement('div');
+    prompt.className = 'rate-prompt';
+    prompt.textContent = 'You finished this — how was it?';
+
+    const err = document.createElement('div');
+    err.className = 'rate-err';
+    err.hidden = true;
+
+    const gridEl = document.createElement('div');
+    gridEl.className = 'rate-grid';
+    for (let n = 1; n <= 10; n++) {
+      const cell = document.createElement('button');
+      cell.type = 'button';
+      cell.className = 'rate-cell';
+      cell.textContent = String(n);
+      cell.addEventListener('click', async () => {
+        gridEl.querySelectorAll('button').forEach((b) => (b.disabled = true));
+        err.hidden = true;
+        try {
+          const res = await rateAnime(rem.animeId, n);
+          if (res?.ok) {
+            await removePendingRating(rem.animeId);
+            await renderRateReminders();
+          } else {
+            throw new Error(res?.error ?? 'failed');
+          }
+        } catch {
+          err.textContent = "Couldn't save that rating — try again.";
+          err.hidden = false;
+          gridEl.querySelectorAll('button').forEach((b) => (b.disabled = false));
+        }
+      });
+      gridEl.appendChild(cell);
+    }
+
+    const link = document.createElement('a');
+    link.className = 'rate-link';
+    link.href = `https://myanimelist.net/anime/${rem.animeId}`;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    link.textContent = 'Open on MyAnimeList →';
+
+    card.append(head, prompt, gridEl, err, link);
+    rateList.appendChild(card);
+  }
+}
+
 let homeLoaded = false;
 function loadHomeContent(): void {
   if (homeLoaded) return; // network sections load once per panel session
   homeLoaded = true;
   void loadMyList();
   void loadSeasonal();
+  void loadRecs();
 }
 
 async function loadMyList(): Promise<void> {
@@ -928,6 +1054,25 @@ async function loadSeasonal(): Promise<void> {
   }
 }
 
+/** "Because you watched X" — picks seeded from the most recent show we can map. */
+async function loadRecs(): Promise<void> {
+  recsSection.hidden = true;
+  try {
+    const r = await requestRecommendations();
+    if (!r.ok || !r.items.length) return;
+    recsLabel.textContent = r.seedTitle ? `Because you watched ${r.seedTitle}` : 'Recommended for you';
+    recsRail.replaceChildren();
+    for (const it of r.items) {
+      const card = posterCard(it.picture, it.title, it.type ?? '');
+      makeActivatable(card, () => void openCrSearch(it.title));
+      recsRail.appendChild(card);
+    }
+    recsSection.hidden = false;
+  } catch {
+    /* leave hidden */
+  }
+}
+
 // ── footer stats ────────────────────────────────────────────────────
 async function renderStats(): Promise<void> {
   const s = await getStats();
@@ -941,6 +1086,7 @@ const setAutoNext = $<HTMLInputElement>('#set-autoNext');
 const setAutoPip = $<HTMLInputElement>('#set-autoPip');
 const setKeepWatching = $<HTMLInputElement>('#set-keepWatching');
 const setShowToast = $<HTMLInputElement>('#set-showToast');
+const setSkipFirst = $<HTMLInputElement>('#set-skipFirst');
 const setSkip = Object.fromEntries(
   SKIP_SEGMENTS.map((k) => [k, $<HTMLInputElement>(`#set-skip-${k}`)]),
 ) as Record<SkipType, HTMLInputElement>;
@@ -1088,6 +1234,7 @@ async function renderSettings(): Promise<void> {
   setAutoPip.checked = s.autoPip;
   setKeepWatching.checked = s.keepWatching;
   setShowToast.checked = s.showToast;
+  setSkipFirst.checked = s.skipAfterFirstOnly;
   for (const k of SKIP_SEGMENTS) setSkip[k].checked = s.skip[k];
   for (const r of modeRadios) r.checked = r.value === s.mode;
   await renderMalSettings();
@@ -1101,6 +1248,7 @@ setAutoNext.addEventListener('change', () => patchSettings({ autoNext: setAutoNe
 setAutoPip.addEventListener('change', () => patchSettings({ autoPip: setAutoPip.checked }));
 setKeepWatching.addEventListener('change', () => patchSettings({ keepWatching: setKeepWatching.checked }));
 setShowToast.addEventListener('change', () => patchSettings({ showToast: setShowToast.checked }));
+setSkipFirst.addEventListener('change', () => patchSettings({ skipAfterFirstOnly: setSkipFirst.checked }));
 for (const k of SKIP_SEGMENTS) {
   setSkip[k].addEventListener('change', async () => {
     const s = await getSettings();
@@ -1414,6 +1562,8 @@ chrome.storage.onChanged.addListener((changes, area) => {
     void renderResume();
     void renderIdleHistory();
   }
+  // A series finished elsewhere (progress-sync) queued a rating reminder.
+  if (changes.pendingRatings) void renderRateReminders();
 });
 
 // ── boot ────────────────────────────────────────────────────────────

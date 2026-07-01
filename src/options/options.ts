@@ -38,7 +38,7 @@ const modeEls = Array.from(
   document.querySelectorAll<HTMLInputElement>('input[name="mode"]'),
 );
 
-const boolKeys = ['autoNext', 'autoPip', 'keepWatching', 'showToast'] as const;
+const boolKeys = ['autoNext', 'autoPip', 'keepWatching', 'showToast', 'skipAfterFirstOnly'] as const;
 const boolEls = Object.fromEntries(
   boolKeys.map((k) => [k, $<HTMLInputElement>(k)]),
 ) as Record<(typeof boolKeys)[number], HTMLInputElement>;
