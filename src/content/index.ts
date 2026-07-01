@@ -16,6 +16,7 @@ import { attachSkipEngine } from './skip-engine';
 import { startDomSkip } from './dom-skip';
 import { attachAutoNext } from './autonext';
 import { attachAutoPip } from './auto-pip';
+import { attachPipButton } from './pip-button';
 import { attachProgress } from './progress';
 import { extractMeta } from './meta';
 import { startKeepWatching } from './keep-watching';
@@ -191,6 +192,10 @@ function startSession(ctx: EpisodeContext | null): void {
     teardown.push(
       attachAutoPip(video, () => settings.enabled && settings.autoPip).detach,
     );
+
+    // Manual PiP button on the player — always available (a click is a real
+    // gesture, so it works even when browser-initiated Auto-PiP can't fire).
+    teardown.push(attachPipButton(video).detach);
 
     if (ctx) {
       teardown.push(

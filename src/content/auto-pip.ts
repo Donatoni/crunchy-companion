@@ -1,28 +1,35 @@
 /**
  * Auto Picture-in-Picture: when the user switches away from the Crunchyroll tab
- * while an episode is playing, pop the <video> out into a floating PiP window so
- * they can keep watching in the corner. Returning to the tab closes the window
- * again — but only if we were the ones who opened it, so we never fight a PiP
- * the user opened themselves via the native button.
+ * while an episode is playing, pop the <video> out into a floating window so they
+ * can keep watching, then close it again on return.
  *
- * Chrome allows requestPictureInPicture() without a fresh user gesture during the
- * visibility→hidden transition as long as the video is actively playing, which is
- * exactly the moment this reacts to. The content script runs in every frame, so
- * the frame that owns the player handles its own visibility change (iframes
- * inherit the top tab's visibility state).
+ * The enter path uses the mechanism Chrome actually permits without a fresh page
+ * gesture: register a `mediaSession` "enterpictureinpicture" action handler and
+ * mark the video `autopictureinpicture`. Chrome then invokes the handler itself
+ * when the tab is hidden. (A plain visibilitychange → requestPictureInPicture()
+ * is rejected as a gesture violation, which is why the first attempt did nothing.)
+ *
+ * Caveat: Chrome only browser-initiates Auto-PiP for media in the TOP frame. If
+ * Crunchyroll serves the player from a cross-origin iframe, this won't fire — the
+ * manual PiP button (see pip-button.ts) covers that case.
  */
 export function attachAutoPip(
   video: HTMLVideoElement,
   isEnabled: () => boolean,
 ): { detach: () => void } {
-  // True only while a PiP window WE opened is up, so onShow() closes ours and
-  // leaves a user-opened one alone.
+  // True only while a PiP window WE auto-opened is up, so we close ours on return
+  // and leave a user-opened one (via the button / native control) alone.
   let openedByUs = false;
 
-  const canPip = () =>
-    document.pictureInPictureEnabled && !video.disablePictureInPicture;
+  const canPip = () => document.pictureInPictureEnabled && !video.disablePictureInPicture;
 
-  async function onHide(): Promise<void> {
+  // Keep the element's Auto-PiP eligibility in sync with the setting.
+  function applyAttr(): void {
+    if (isEnabled() && canPip()) video.setAttribute('autopictureinpicture', '');
+    else video.removeAttribute('autopictureinpicture');
+  }
+
+  async function enter(): Promise<void> {
     if (!isEnabled() || !canPip()) return;
     if (document.pictureInPictureElement) return; // already floating
     // Only pop out a video that's genuinely playing — not paused, ended, or
@@ -32,40 +39,62 @@ export function attachAutoPip(
       await video.requestPictureInPicture();
       openedByUs = true;
     } catch {
-      /* gesture/availability rejected — nothing to do */
+      /* rejected — nothing to do */
     }
   }
 
-  async function onShow(): Promise<void> {
-    if (!openedByUs) return;
+  // Chrome calls this automatically when the tab is hidden; the request inside is
+  // treated as browser-initiated, so no page gesture is required.
+  const ms = navigator.mediaSession as MediaSession | undefined;
+  const hasMediaSession = !!ms && typeof ms.setActionHandler === 'function';
+  if (hasMediaSession) {
+    // 'enterpictureinpicture' isn't in the lib.dom action union yet.
+    try {
+      (ms!.setActionHandler as (a: string, h: (() => void) | null) => void)(
+        'enterpictureinpicture',
+        () => void enter(),
+      );
+    } catch {
+      /* unsupported action — ignore */
+    }
+  }
+
+  // Returning to the tab closes the window we opened (exit needs no gesture).
+  const onVisibility = () => {
+    if (document.visibilityState !== 'visible' || !openedByUs) return;
     openedByUs = false;
     if (document.pictureInPictureElement === video) {
-      try {
-        await document.exitPictureInPicture();
-      } catch {
-        /* ignore */
-      }
+      document.exitPictureInPicture().catch(() => {});
     }
-  }
-
-  const onVisibility = () => {
-    if (document.visibilityState === 'hidden') void onHide();
-    else void onShow();
   };
-
-  // If the user closes the PiP window themselves (native "back to tab" button or
-  // the window's close control), stop considering it ours.
+  // If the user closes the window themselves, stop considering it ours.
   const onLeave = () => {
     openedByUs = false;
   };
+  // Re-sync eligibility whenever playback (re)starts and at attach time.
+  const onPlay = () => applyAttr();
 
+  applyAttr();
   document.addEventListener('visibilitychange', onVisibility);
   video.addEventListener('leavepictureinpicture', onLeave);
+  video.addEventListener('play', onPlay);
 
   return {
     detach() {
       document.removeEventListener('visibilitychange', onVisibility);
       video.removeEventListener('leavepictureinpicture', onLeave);
+      video.removeEventListener('play', onPlay);
+      video.removeAttribute('autopictureinpicture');
+      if (hasMediaSession) {
+        try {
+          (ms!.setActionHandler as (a: string, h: (() => void) | null) => void)(
+            'enterpictureinpicture',
+            null,
+          );
+        } catch {
+          /* ignore */
+        }
+      }
     },
   };
 }
