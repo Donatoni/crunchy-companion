@@ -4,7 +4,7 @@
  */
 import { requestMalStatus } from '@/shared/messages';
 import { clearHistory, getHistory, removeHistory, type HistoryEntry } from '@/shared/history';
-import { $, openEpisode, relTime, setBg } from './helpers';
+import { $, openEpisode, relTime, scrollPanelTop, setBg } from './helpers';
 
 const recentView = $('#recentView');
 const recList = $('#rec-list');
@@ -216,7 +216,10 @@ $('#open-recent').addEventListener('click', async () => {
   await renderRecent();
   void fillGenres(); // background: resolve any missing genres, then re-render
 });
-$('#rec-back').addEventListener('click', () => (recentView.hidden = true));
+$('#rec-back').addEventListener('click', () => {
+  recentView.hidden = true;
+  scrollPanelTop(); // leaving Recent lands at the top of the page
+});
 $('#rec-clear').addEventListener('click', async () => {
   await clearHistory();
   await renderRecent();

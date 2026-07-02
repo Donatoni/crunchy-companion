@@ -100,6 +100,17 @@ export function makeRailScrollable(rail: HTMLElement): void {
   );
 }
 
+/**
+ * Scroll the main panel back to the top. The scroll container is shared by the
+ * watching and home views, so its position survives view swaps — call this on
+ * every "you've arrived somewhere new" transition (view change, show change,
+ * closing an overlay).
+ */
+export function scrollPanelTop(): void {
+  const el = document.getElementById('scroll');
+  if (el) el.scrollTop = 0;
+}
+
 /** "3m ago" / "2h ago" / "5d ago" / "3w ago" for history timestamps. */
 export function relTime(ts: number): string {
   const m = Math.floor((Date.now() - ts) / 60000);

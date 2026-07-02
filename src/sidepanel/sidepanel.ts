@@ -7,7 +7,7 @@
 import type { ContentStatusRequest, TabStatusResponse } from '@/shared/messages';
 import type { TrackerMeta } from '@/shared/types';
 import { formatSaved, getStats } from '@/shared/stats';
-import { $ } from './helpers';
+import { $, scrollPanelTop } from './helpers';
 import { refreshMalStatus, updateWatching } from './watching';
 import {
   invalidateHome,
@@ -59,10 +59,14 @@ async function refresh(): Promise<void> {
     // (wiping it re-enters the skeleton loading path and visibly jumps the
     // layout), so refresh the MAL numbers silently in place instead. A
     // different show takes updateWatching's full loading path anyway.
-    if (cameFromIdle) refreshMalStatus();
+    if (cameFromIdle) {
+      refreshMalStatus();
+      scrollPanelTop(); // arriving on the show page starts at the top
+    }
   } else {
     watchingView.hidden = true;
     idleView.hidden = false;
+    if (!inIdle) scrollPanelTop(); // arriving on the home view starts at the top
     inIdle = true;
     // Render the idle sections only on ENTERING idle, not on every poll tick —
     // rebuilding them resets the "Jump back in" rail's scroll. Live updates
@@ -91,6 +95,7 @@ initSettingsView(() => {
   refreshMalStatus();
   invalidateHome(); // re-pull My List / Seasonal / Recs
   idleRendered = false; // re-render idle sections on return
+  scrollPanelTop(); // leaving settings lands at the top of the page
   void refresh();
 });
 

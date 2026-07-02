@@ -14,7 +14,7 @@ import {
 import type { MalCharacter, MalRelated, MalReview } from '@/shared/mal';
 import { formatAirDate, nextBroadcastDate } from '@/shared/broadcast';
 import { confettiBurst } from '@/shared/confetti';
-import { $, esc, makeActivatable, makeRailScrollable, setBg } from './helpers';
+import { $, esc, makeActivatable, makeRailScrollable, scrollPanelTop, setBg } from './helpers';
 import { openSettings } from './settings-view';
 
 const MAL_STATUS = [
@@ -688,6 +688,12 @@ malNudge.addEventListener('click', openSettings);
 // ── public API (called by the shell) ────────────────────────────────
 /** Render the watching view for the tab's current episode metadata. */
 export function updateWatching(meta: TrackerMeta): void {
+  // Scroll to the top when the SHOW changes (not on same-show episode
+  // advances — a binge shouldn't yank the reader back up every episode).
+  const seriesKey = `${meta.series}|${meta.season}`;
+  const prevSeriesKey = currentMeta ? `${currentMeta.series}|${currentMeta.season}` : null;
+  if (prevSeriesKey !== null && seriesKey !== prevSeriesKey) scrollPanelTop();
+
   currentMeta = meta;
   const key = metaKey(meta);
   if (key !== lastMetaKey) {
