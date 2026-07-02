@@ -254,14 +254,18 @@ body {
 .set-row-main { flex: 1; min-width: 0; }
 .set-row-title { font-size: 13px; font-weight: 500; }
 .set-row-desc { font-size: 11px; color: var(--text-3); margin-top: 2px; line-height: 1.4; }
-.set-radio { position: relative; display: flex; gap: 10px; padding: 11px 12px; margin-bottom: 8px; border-radius: 11px; border: 1px solid var(--line); background: var(--surface-2); cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+/* Skip-method radios: flat rows in the same rhythm as the toggle rows — the
+   orange dot (not a boxed background) carries the selected state. */
+.set-radio { position: relative; display: flex; gap: 12px; padding: 8px 0; cursor: pointer; }
 .set-radio input { position: absolute; opacity: 0; width: 0; height: 0; }
-.set-radio-dot { flex: 0 0 auto; width: 16px; height: 16px; margin-top: 1px; border-radius: 50%; border: 1.5px solid var(--line-strong); display: grid; place-items: center; }
+.set-radio-dot { flex: 0 0 auto; width: 16px; height: 16px; margin-top: 1px; border-radius: 50%; border: 1.5px solid var(--line-strong); display: grid; place-items: center; transition: border-color 0.15s; }
+.set-radio:hover .set-radio-dot { border-color: var(--text-3); }
 .set-radio input:checked ~ .set-radio-dot { border-color: var(--accent); }
 .set-radio input:checked ~ .set-radio-dot::after { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
-.set-radio:has(input:checked) { border-color: rgba(244,117,33,0.5); background: var(--accent-dim); }
 .set-radio-main { display: flex; flex-direction: column; gap: 2px; }
-.set-radio-title { font-size: 13px; font-weight: 600; }
+.set-radio-title { font-size: 13px; font-weight: 500; color: var(--text-2); transition: color 0.15s; }
+.set-radio:hover .set-radio-title { color: var(--text); }
+.set-radio input:checked ~ .set-radio-main .set-radio-title { color: var(--text); }
 .set-radio-desc { font-size: 11px; color: var(--text-3); line-height: 1.4; }
 /* Account rows (Cloud sync / MyAnimeList): same flat rhythm as the toggle
    rows — small badge, text, one action — instead of stacked boxed cards. */
