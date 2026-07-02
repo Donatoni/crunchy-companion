@@ -153,7 +153,9 @@ body {
 .season .t { font-size: 11px; margin-top: 6px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .season .n { font: 500 10px var(--mono); color: var(--text-3); text-transform: capitalize; }
 .char { flex: 0 0 auto; width: 70px; text-align: center; }
-.char .av { width: 70px; height: 70px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface-3) center/cover no-repeat; }
+.char .av { width: 70px; height: 70px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface-3) center/cover no-repeat; transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease; }
+.char.link { cursor: pointer; }
+.char.link:hover .av { transform: translateY(-2px); border-color: var(--line-strong); box-shadow: 0 8px 20px -8px rgba(0, 0, 0, 0.7); }
 .char .cn { font-size: 10.5px; margin-top: 6px; color: var(--text-2); line-height: 1.25; }
 .char .cr { font-size: 9.5px; color: var(--text-3); font-family: var(--mono); }
 

@@ -197,6 +197,8 @@ export interface MalCharacter {
   name: string;
   image: string | null;
   role: string;
+  /** Character page on MyAnimeList, if known. */
+  url: string | null;
 }
 
 export interface MalReview {
@@ -295,11 +297,17 @@ export async function getCharacters(animeId: number): Promise<MalCharacter[]> {
   const j = await res.json();
   return (j.data ?? [])
     .slice(0, 14)
-    .map((d: { character?: { name?: string; images?: { jpg?: { image_url?: string } } }; role?: string }) => ({
-      name: d.character?.name ?? '',
-      image: d.character?.images?.jpg?.image_url ?? null,
-      role: d.role ?? '',
-    }));
+    .map(
+      (d: {
+        character?: { name?: string; url?: string; images?: { jpg?: { image_url?: string } } };
+        role?: string;
+      }) => ({
+        name: d.character?.name ?? '',
+        image: d.character?.images?.jpg?.image_url ?? null,
+        role: d.role ?? '',
+        url: d.character?.url ?? null,
+      }),
+    );
 }
 
 /**

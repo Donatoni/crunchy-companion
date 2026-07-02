@@ -262,6 +262,11 @@ async function loadCharacters(animeId: number): Promise<void> {
     setBg(el.querySelector('.av')!, c.image);
     el.querySelector<HTMLElement>('.cn')!.textContent = c.name;
     el.querySelector<HTMLElement>('.cr')!.textContent = (c.role || '').toUpperCase();
+    if (c.url) {
+      el.classList.add('link');
+      el.title = `${c.name} on MyAnimeList`;
+      makeActivatable(el, () => window.open(c.url!, '_blank', 'noopener'));
+    }
     charactersRail.appendChild(el);
   }
   charactersSection.hidden = chars.length === 0;
