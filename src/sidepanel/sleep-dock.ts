@@ -72,6 +72,9 @@ for (const chip of sleepChips) {
     else void setSleepTimer(Number(eps));
     // Storage listener below repaints; this just makes the tap feel instant.
     renderSleepTimer(eps === '' ? null : { remaining: Number(eps), setAt: Date.now() });
+    // Picking an option is a complete action — dismiss the dock (the lit moon
+    // still shows a timer is armed).
+    setOpen(false);
   });
 }
 getSleepTimer()
