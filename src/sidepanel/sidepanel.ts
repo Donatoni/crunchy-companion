@@ -8,7 +8,7 @@ import type { ContentStatusRequest, TabStatusResponse } from '@/shared/messages'
 import type { TrackerMeta } from '@/shared/types';
 import { formatSaved, getStats } from '@/shared/stats';
 import { $ } from './helpers';
-import { resetWatchingCache, updateWatching } from './watching';
+import { refreshMalStatus, resetWatchingCache, updateWatching } from './watching';
 import {
   invalidateHome,
   loadHomeContent,
@@ -101,6 +101,9 @@ chrome.tabs.onUpdated.addListener((_id, info) => {
 // view immediately (no debounce — this message is the settled state).
 chrome.runtime.onMessage.addListener((msg: { type?: string }) => {
   if (msg?.type === 'EPISODE_META') void refresh();
+  // Progress-sync wrote to MAL — repaint the Your-list card with fresh counts
+  // (silent refetch: same show, no skeleton flash).
+  if (msg?.type === 'MAL_UPDATED') refreshMalStatus();
   return false; // the service worker owns the response, not the panel
 });
 

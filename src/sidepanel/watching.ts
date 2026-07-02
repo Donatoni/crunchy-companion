@@ -699,3 +699,13 @@ export function resetWatchingCache(): void {
   lastMetaKey = '';
   currentMeta = null;
 }
+
+/**
+ * Silently re-fetch the current show's MAL card (same show, fresher numbers) —
+ * used when progress-sync writes to MAL mid-episode. Unlike updateWatching's
+ * new-show path this keeps malResp, so the poster/details don't flash back to
+ * a skeleton; applyMal just repaints with the new counts.
+ */
+export function refreshMalStatus(): void {
+  if (currentMeta) void loadMal();
+}

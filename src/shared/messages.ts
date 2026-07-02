@@ -39,6 +39,15 @@ export interface TrackerToastMessage {
   celebrate?: boolean;
 }
 
+/**
+ * Worker -> side panel: progress-sync just wrote to MAL. The panel re-fetches
+ * the Your-list card so the count bumps on screen right away instead of
+ * showing stale numbers until the next show change.
+ */
+export interface MalUpdatedMessage {
+  type: 'MAL_UPDATED';
+}
+
 /** Popup -> worker: current episode status for a tab (for the status card). */
 export interface TabStatusRequest {
   type: 'GET_TAB_STATUS';

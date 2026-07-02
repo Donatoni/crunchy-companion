@@ -7,9 +7,11 @@ import { log } from '@/shared/log';
  * until ~80% through: when you advance from episode 5 to 6, you want MAL to read
  * 6 soon after 6 begins, not a whole episode behind. The small grace period
  * (real playback past `STARTED_SECONDS`) confirms you're actually watching it
- * and not just clicking past — an accidental peek won't bump your count.
+ * and not just clicking past — an accidental peek won't bump your count (and a
+ * first-time show won't get added to the MAL list by a misclick). Kept short
+ * so the count visibly moves "right away" when you genuinely start an episode.
  */
-const STARTED_SECONDS = 30;
+const STARTED_SECONDS = 10;
 
 export interface ProgressController {
   detach: () => void;

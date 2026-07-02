@@ -1,6 +1,7 @@
 import { DEFAULT_SETTINGS, getSettings, saveSettings } from '@/shared/settings';
 import type {
   FetchSkipEventsResponse,
+  MalUpdatedMessage,
   RuntimeMessage,
   TrackerToastMessage,
 } from '@/shared/messages';
@@ -296,6 +297,12 @@ async function onEpisodeWatched(tabId: number, episodeId: string): Promise<void>
     } else {
       toast(tabId, `MyAnimeList updated: ${mapping.title} • episode ${watched}`);
     }
+    // Nudge the side panel (if open) to re-fetch the Your-list card so the
+    // count moves on screen now, not on the next show change. No receiver
+    // (panel closed) rejects — ignore.
+    void chrome.runtime
+      .sendMessage<MalUpdatedMessage>({ type: 'MAL_UPDATED' })
+      .catch(() => {});
   } catch (err) {
     log('watched: MAL sync FAILED', err);
     toast(tabId, `Crunchyroll Companion: MAL sync failed (${err instanceof Error ? err.message : 'error'})`);
