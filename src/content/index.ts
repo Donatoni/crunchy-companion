@@ -25,7 +25,7 @@ import { extractMeta } from './meta';
 import { startKeepWatching } from './keep-watching';
 import { recordHistory } from '@/shared/history';
 import { showToast } from './toast';
-import { requestSkipEvents, sendEpisodeMeta } from '@/shared/messages';
+import { sendEpisodeMeta } from '@/shared/messages';
 import { isExtensionContextValid } from '@/shared/runtime';
 import { log } from '@/shared/log';
 import type { EpisodeContext } from '@/shared/types';
@@ -56,19 +56,15 @@ chrome.runtime.onMessage.addListener(
       showToast({ message: msg.text, durationMs: 4000 });
       return false;
     }
-    // Popup -> page: live status for the card. Only the top watch frame answers.
+    // Side panel -> page: live status for the view switch. Only the top watch
+    // frame answers. Respond SYNCHRONOUSLY from the already-scraped DOM — the
+    // panel only needs `meta`, and awaiting a skip-events fetch here (worker
+    // wake + possible network) held the idle→watching flip hostage for no gain.
     if (msg?.type === 'GET_STATUS') {
       if (!isTopWatch()) return false;
       const ctx = parseEpisode();
-      if (!ctx) {
-        sendResponse({ meta: null, segments: 0 });
-        return true;
-      }
-      const meta = extractMeta(ctx.episodeId);
-      requestSkipEvents(ctx.episodeId)
-        .then((r) => sendResponse({ meta, segments: r.ok ? r.segments.length : 0 }))
-        .catch(() => sendResponse({ meta, segments: 0 }));
-      return true; // async response
+      sendResponse({ meta: ctx ? extractMeta(ctx.episodeId) : null, segments: 0 });
+      return true;
     }
     return false;
   },

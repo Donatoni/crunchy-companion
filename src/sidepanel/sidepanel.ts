@@ -91,8 +91,20 @@ chrome.tabs.onActivated.addListener(scheduleRefresh);
 chrome.tabs.onUpdated.addListener((_id, info) => {
   if (info.url || info.status === 'complete') scheduleRefresh();
 });
-// Safety-net poll only: tab listeners above catch navigation (incl. SPA URL
-// changes, which fire tabs.onUpdated), so this just heals missed events.
+
+// PUSH path — the reason the idle→watching flip is fast. Tab events fire when
+// the page NAVIGATES, but the episode metadata is scraped a beat later; a
+// GET_STATUS poll at navigation time comes back empty and the panel would sit
+// on the home view until the next tick. The content script broadcasts
+// EPISODE_META the moment the scrape resolves, so reacting to it flips the
+// view immediately (no debounce — this message is the settled state).
+chrome.runtime.onMessage.addListener((msg: { type?: string }) => {
+  if (msg?.type === 'EPISODE_META') void refresh();
+  return false; // the service worker owns the response, not the panel
+});
+
+// Safety-net poll only: tab listeners + the EPISODE_META push above catch real
+// transitions, so this just heals missed events.
 window.setInterval(() => void refresh(), 10_000);
 
 // Keep the idle dashboard live without polling: when history/stats change in
