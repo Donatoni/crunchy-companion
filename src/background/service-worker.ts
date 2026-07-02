@@ -24,6 +24,7 @@ import {
   getRecommendations,
   getReviews,
   getSeasonal,
+  getThemes,
   getUserList,
   refresh,
   searchAnime,
@@ -129,9 +130,9 @@ async function clearTabMeta(tabId: number): Promise<void> {
   await chrome.storage.session.remove(metaKey(tabId));
 }
 
-function toast(tabId: number, text: string): void {
+function toast(tabId: number, text: string, celebrate = false): void {
   void chrome.tabs
-    .sendMessage<TrackerToastMessage>(tabId, { type: 'TRACKER_TOAST', text })
+    .sendMessage<TrackerToastMessage>(tabId, { type: 'TRACKER_TOAST', text, celebrate })
     .catch(() => {});
 }
 
@@ -290,9 +291,9 @@ async function onEpisodeWatched(tabId: number, episodeId: string): Promise<void>
 
     if (justCompleted) {
       log('watched: series completed', mapping.title);
-      toast(tabId, `Finished ${mapping.title} — marked Completed on MyAnimeList ✓`);
+      toast(tabId, `Finished ${mapping.title} — marked Completed on MyAnimeList ✓`, true);
     } else if (finishedRewatch) {
-      toast(tabId, `Rewatch complete: ${mapping.title} ✓`);
+      toast(tabId, `Rewatch complete: ${mapping.title} ✓`, true);
     } else {
       toast(tabId, `MyAnimeList updated: ${mapping.title} • episode ${watched}`);
     }
@@ -385,6 +386,9 @@ chrome.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendRespo
           year: d.year,
           studios: d.studios,
           related: d.related,
+          airingStatus: d.airingStatus,
+          broadcastDay: d.broadcastDay,
+          broadcastTime: d.broadcastTime,
         });
       })().catch(() => sendResponse({ ok: false }));
       return true; // async response
@@ -399,6 +403,12 @@ chrome.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendRespo
       getReviews(message.animeId)
         .then(({ reviews, allUrl }) => sendResponse({ ok: true, reviews, allUrl }))
         .catch(() => sendResponse({ ok: false, reviews: [] }));
+      return true; // async response
+    }
+    case 'GET_MAL_THEMES': {
+      getThemes(message.animeId)
+        .then(({ openings, endings }) => sendResponse({ ok: true, openings, endings }))
+        .catch(() => sendResponse({ ok: false, openings: [], endings: [] }));
       return true; // async response
     }
     case 'GET_MY_LIST': {

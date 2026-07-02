@@ -9,10 +9,21 @@ import {
   setMalStatus,
   requestMalCharacters,
   requestMalReviews,
+  requestMalThemes,
   type MalStatusResponse,
 } from '@/shared/messages';
 import type { MalCharacter, MalRelated, MalReview } from '@/shared/mal';
-import { $, esc, makeActivatable, makeRailScrollable, setBg } from './helpers';
+import { parseThemeEntry, themeSearchUrl } from '@/shared/themes';
+import { formatAirDate, nextBroadcastDate } from '@/shared/broadcast';
+import { confettiBurst } from '@/shared/confetti';
+import {
+  clearSleepTimer,
+  getSleepTimer,
+  onSleepTimerChanged,
+  setSleepTimer,
+  type SleepTimer,
+} from '@/shared/sleep-timer';
+import { $, esc, makeActivatable, makeRailScrollable, openInNewTab, setBg } from './helpers';
 import { openSettings } from './settings-view';
 
 const MAL_STATUS = [
@@ -39,6 +50,8 @@ let lastCharId: number | null = null;
 const charCache = new Map<number, MalCharacter[]>();
 let lastReviewId: number | null = null;
 const reviewCache = new Map<number, { reviews: MalReview[]; allUrl: string }>();
+let lastThemesId: number | null = null;
+const themesCache = new Map<number, { openings: string[]; endings: string[] }>();
 
 // ── elements ────────────────────────────────────────────────────────
 const heroBg = $('#heroBg');
@@ -84,6 +97,14 @@ const charactersSection = $('#charactersSection');
 const charactersRail = $('#charactersRail');
 const reviewsSection = $('#reviewsSection');
 const reviewsList = $('#reviewsList');
+const themesSection = $('#themesSection');
+const themesList = $('#themesList');
+const airPill = $('#airPill');
+const airPillText = $('#airPillText');
+const sleepStatus = $('#sleepStatus');
+const sleepChips = Array.from(
+  document.querySelectorAll<HTMLButtonElement>('#sleepChips .sleep-chip'),
+);
 
 [seasonsRail, charactersRail].forEach(makeRailScrollable);
 
@@ -117,9 +138,26 @@ function renderHero(): void {
 // ── show details (from MAL) ─────────────────────────────────────────
 function hideDetails(): void {
   metaStrip.hidden = true;
+  airPill.hidden = true;
   genresEl.hidden = true;
   synopsisWrap.hidden = true;
   seasonsSection.hidden = true;
+}
+
+/**
+ * "Next episode ~ Thursday · 9:15 PM" pill for currently-airing shows, from
+ * MAL's weekly broadcast slot (JST) converted to the viewer's local time. The
+ * "~" is honest: simulcast episodes usually land around (not exactly at) the
+ * Japanese broadcast.
+ */
+function renderAirDate(r: MalStatusResponse): void {
+  airPill.hidden = true;
+  if (r.airingStatus !== 'currently_airing' || !r.broadcastDay) return;
+  const next = nextBroadcastDate(r.broadcastDay, r.broadcastTime ?? null);
+  if (!next) return;
+  airPillText.textContent = `Next episode ~ ${formatAirDate(next)}`;
+  airPill.title = next.toLocaleString();
+  airPill.hidden = false;
 }
 
 function renderDetails(r: MalStatusResponse): void {
@@ -147,6 +185,9 @@ function renderDetails(r: MalStatusResponse): void {
     metaStrip.appendChild(b);
   });
   metaStrip.hidden = bits.length === 0;
+
+  // next-episode air date (currently-airing shows)
+  renderAirDate(r);
 
   // genres
   genresEl.replaceChildren();
@@ -311,6 +352,75 @@ async function loadReviews(animeId: number): Promise<void> {
   reviewsSection.hidden = data.reviews.length === 0;
 }
 
+// ── theme songs (OP/ED) ─────────────────────────────────────────────
+const THEMES_SHOWN_PER_GROUP = 5;
+
+/** One clickable row per theme; clicking searches YouTube for song + artist. */
+function themeRow(kind: 'OP' | 'ED', raw: string): HTMLElement {
+  const t = parseThemeEntry(raw);
+  const row = document.createElement('button');
+  row.type = 'button';
+  row.className = 'theme-row';
+  row.title = `Listen on YouTube: ${t.song}${t.artist ? ` — ${t.artist}` : ''}`;
+
+  const badge = document.createElement('span');
+  badge.className = `theme-badge ${kind === 'OP' ? 'op' : 'ed'}`;
+  badge.textContent = kind;
+
+  const main = document.createElement('span');
+  main.className = 'theme-main';
+  const song = document.createElement('span');
+  song.className = 'theme-song';
+  song.textContent = t.song;
+  const sub = document.createElement('span');
+  sub.className = 'theme-artist';
+  sub.textContent = [t.artist, t.eps].filter(Boolean).join(' · ');
+  main.append(song, sub);
+
+  const play = document.createElement('span');
+  play.className = 'theme-play';
+  play.innerHTML =
+    '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5a1 1 0 0 1 1.5-.87l9 5.5a1 1 0 0 1 0 1.74l-9 5.5A1 1 0 0 1 8 16.5v-11Z"/></svg>';
+
+  row.append(badge, main, play);
+  row.addEventListener('click', () => void openInNewTab(themeSearchUrl(t)));
+  return row;
+}
+
+function renderThemeGroup(kind: 'OP' | 'ED', entries: string[]): void {
+  for (const raw of entries.slice(0, THEMES_SHOWN_PER_GROUP)) {
+    themesList.appendChild(themeRow(kind, raw));
+  }
+  const extra = entries.length - THEMES_SHOWN_PER_GROUP;
+  if (extra > 0) {
+    const more = document.createElement('div');
+    more.className = 'theme-more';
+    more.textContent = `+ ${extra} more ${kind === 'OP' ? 'opening' : 'ending'}${extra === 1 ? '' : 's'}`;
+    themesList.appendChild(more);
+  }
+}
+
+async function loadThemes(animeId: number): Promise<void> {
+  if (animeId === lastThemesId) return;
+  lastThemesId = animeId;
+  themesSection.hidden = true;
+  let data = themesCache.get(animeId);
+  if (!data) {
+    try {
+      const r = await requestMalThemes(animeId);
+      data = r.ok ? { openings: r.openings, endings: r.endings } : { openings: [], endings: [] };
+      themesCache.set(animeId, data);
+    } catch {
+      data = { openings: [], endings: [] };
+    }
+  }
+  if (animeId !== lastThemesId) return; // changed while loading
+  themesList.replaceChildren();
+  renderThemeGroup('OP', data.openings);
+  renderThemeGroup('ED', data.endings);
+  themesSection.hidden = data.openings.length + data.endings.length === 0;
+}
+
 // ── your list (MAL controls) ────────────────────────────────────────
 function setStatusControl(value: string): void {
   const opt = MAL_STATUS.find((o) => o.value === value) ?? MAL_STATUS[0];
@@ -407,12 +517,14 @@ function applyMal(r: MalStatusResponse | undefined): void {
       malLink.href = `https://myanimelist.net/anime/${r.animeId}`;
       void loadCharacters(r.animeId);
       void loadReviews(r.animeId);
+      void loadThemes(r.animeId);
     }
   } else {
     renderHero(); // clear the poster shimmer even when nothing matched
     hideDetails();
     charactersSection.hidden = true;
     reviewsSection.hidden = true;
+    themesSection.hidden = true;
   }
 
   // Your-list card (signed in + matched) vs nudge (not signed in) vs note.
@@ -495,8 +607,13 @@ async function saveMal(patch: MalPatch): Promise<void> {
     const r = await setMalStatus(currentMeta, patch);
     if (lastMetaKey !== key) return; // show changed during the await — don't clobber it
     if (r?.ok) {
+      // Celebrate a fresh completion (episode stepper hitting the finale, the
+      // status dropdown, or the reconcile banner) — but not re-saves of an
+      // already-completed entry.
+      const justCompleted = r.status === 'completed' && malResp?.status !== 'completed';
       // SET response lacks rich details — merge so we keep synopsis/seasons/etc.
       applyMal({ ...malResp, ...r });
+      if (justCompleted) confettiBurst();
     } else {
       malErr.textContent = r?.error ? `Couldn't save: ${r.error}` : "Couldn't save to MAL";
       malErr.hidden = false;
@@ -650,6 +767,45 @@ document.addEventListener('keydown', (e) => {
   }
 });
 malNudge.addEventListener('click', openSettings);
+
+// ── sleep timer ─────────────────────────────────────────────────────
+/**
+ * Reflect the stored timer: highlight the matching chip and show remaining
+ * count. After a decrement (e.g. set 3, one auto-advance → 2) the count chip
+ * still highlights, so the control reads as live state, not just the last tap.
+ */
+function renderSleepTimer(t: SleepTimer | null): void {
+  for (const chip of sleepChips) {
+    const eps = chip.dataset.eps ?? '';
+    const sel = t == null ? eps === '' : eps !== '' && Number(eps) === t.remaining;
+    chip.classList.toggle('sel', sel);
+    chip.setAttribute('aria-checked', String(sel));
+  }
+  if (t == null) {
+    sleepStatus.hidden = true;
+  } else {
+    sleepStatus.textContent =
+      t.remaining > 0
+        ? `${t.remaining} ep${t.remaining === 1 ? '' : 's'} left 🌙`
+        : 'stopping after this episode 🌙';
+    sleepStatus.hidden = false;
+  }
+}
+
+for (const chip of sleepChips) {
+  chip.setAttribute('role', 'radio');
+  chip.addEventListener('click', () => {
+    const eps = chip.dataset.eps ?? '';
+    if (eps === '') void clearSleepTimer();
+    else void setSleepTimer(Number(eps));
+    // Storage listener below repaints; this just makes the tap feel instant.
+    renderSleepTimer(eps === '' ? null : { remaining: Number(eps), setAt: Date.now() });
+  });
+}
+getSleepTimer()
+  .then(renderSleepTimer)
+  .catch(() => {});
+onSleepTimerChanged(renderSleepTimer);
 
 // ── public API (called by the shell) ────────────────────────────────
 /** Render the watching view for the tab's current episode metadata. */

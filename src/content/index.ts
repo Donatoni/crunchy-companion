@@ -26,6 +26,13 @@ import { startKeepWatching } from './keep-watching';
 import { recordHistory } from '@/shared/history';
 import { showToast } from './toast';
 import { sendEpisodeMeta } from '@/shared/messages';
+import { confettiBurst } from '@/shared/confetti';
+import {
+  clearSleepTimer,
+  decrementSleepTimer,
+  getSleepTimer,
+  onSleepTimerChanged,
+} from '@/shared/sleep-timer';
 import { isExtensionContextValid } from '@/shared/runtime';
 import { log } from '@/shared/log';
 import type { EpisodeContext } from '@/shared/types';
@@ -51,9 +58,10 @@ chrome.runtime.onMessage.addListener(
     sendResponse: (r: unknown) => void,
   ) => {
     // Worker -> top frame: show a tracker result toast (top frame only, so it
-    // isn't duplicated inside the iframe).
+    // isn't duplicated inside the iframe). `celebrate` = series completion.
     if (msg?.type === 'TRACKER_TOAST' && isTopWatch() && msg.text) {
       showToast({ message: msg.text, durationMs: 4000 });
+      if ((msg as { celebrate?: boolean }).celebrate) confettiBurst();
       return false;
     }
     // Side panel -> page: live status for the view switch. Only the top watch
@@ -113,6 +121,14 @@ const skipAllowed = () => {
   const ep = currentEpisode ?? getPostedEpisode();
   return ep != null && ep !== 1;
 };
+
+// Sleep timer mirror ("N more auto-advances"), kept live so the panel's edits
+// apply instantly. `null` = no timer. Consulted by the auto-next gate below.
+let sleepRemaining: number | null = null;
+getSleepTimer()
+  .then((t) => (sleepRemaining = t?.remaining ?? null))
+  .catch(() => {});
+onSleepTimerChanged((t) => (sleepRemaining = t?.remaining ?? null));
 
 let teardown: Array<() => void> = [];
 function teardownSession(): void {
@@ -216,7 +232,17 @@ function startSession(ctx: EpisodeContext | null): void {
     );
 
     teardown.push(
-      attachAutoNext(video, () => settings.enabled && settings.autoNext).detach,
+      attachAutoNext(video, () => settings.enabled && settings.autoNext, {
+        canAdvance: () => sleepRemaining == null || sleepRemaining > 0,
+        onAdvance: () => {
+          if (sleepRemaining != null) void decrementSleepTimer();
+        },
+        onBlocked: () => {
+          // One announcement, then clear — the next manual play starts fresh.
+          showToast({ message: 'Sleep timer done — auto-play paused 🌙', durationMs: 6000 });
+          void clearSleepTimer();
+        },
+      }).detach,
     );
 
     // Crunchyroll blocks PiP via disablePictureInPicture; clear it (and keep it

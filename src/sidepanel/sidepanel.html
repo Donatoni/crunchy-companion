@@ -30,6 +30,7 @@
           <div class="l w75"></div>
         </div>
         <div class="meta-strip" id="metaStrip" hidden></div>
+        <div class="air-pill" id="airPill" hidden><span class="ap-dot"></span><span id="airPillText"></span></div>
         <div class="genres" id="genres" hidden></div>
         <div class="synopsis" id="synopsisWrap" hidden>
           <p class="clamp" id="synopsis"></p>
@@ -82,6 +83,19 @@
           <div class="mal-err" id="malErr" hidden></div>
         </section>
 
+        <!-- Sleep timer -->
+        <section class="section" id="sleepSection">
+          <div class="sec-head"><span class="sec-label">Sleep timer</span><span class="sleep-status" id="sleepStatus" hidden></span></div>
+          <div class="sleep-chips" id="sleepChips" role="radiogroup" aria-label="Stop auto-play after">
+            <button type="button" class="sleep-chip" data-eps="">Off</button>
+            <button type="button" class="sleep-chip" data-eps="1">1 ep</button>
+            <button type="button" class="sleep-chip" data-eps="2">2 eps</button>
+            <button type="button" class="sleep-chip" data-eps="3">3 eps</button>
+            <button type="button" class="sleep-chip" data-eps="5">5 eps</button>
+          </div>
+          <div class="sleep-hint">Auto-play stops after that many more episodes.</div>
+        </section>
+
         <!-- Seasons -->
         <section class="section" id="seasonsSection" hidden>
           <div class="sec-head"><span class="sec-label">Seasons &amp; related</span></div>
@@ -92,6 +106,12 @@
         <section class="section" id="charactersSection" hidden>
           <div class="sec-head"><span class="sec-label">Characters</span></div>
           <div class="rail" id="charactersRail"></div>
+        </section>
+
+        <!-- Theme songs -->
+        <section class="section" id="themesSection" hidden>
+          <div class="sec-head"><span class="sec-label">Theme songs</span></div>
+          <div id="themesList"></div>
         </section>
 
         <!-- Featured reviews -->

@@ -35,6 +35,8 @@ export interface EpisodeWatchedMessage {
 export interface TrackerToastMessage {
   type: 'TRACKER_TOAST';
   text: string;
+  /** Fire a confetti burst alongside the toast (series completion). */
+  celebrate?: boolean;
 }
 
 /** Popup -> worker: current episode status for a tab (for the status card). */
@@ -85,6 +87,9 @@ export interface MalStatusResponse {
   year?: number | null;
   studios?: string[];
   related?: MalRelated[];
+  airingStatus?: string | null;
+  broadcastDay?: string | null;
+  broadcastTime?: string | null;
   /** Failure detail (HTTP status / message) when ok === false. */
   error?: string;
 }
@@ -109,6 +114,17 @@ export interface MalReviewsResponse {
   reviews: MalReview[];
   /** Link to the show's full reviews tab on MAL. */
   allUrl?: string;
+}
+
+/** Side panel -> worker: OP/ED theme songs (via Jikan) for an anime. */
+export interface MalThemesRequest {
+  type: 'GET_MAL_THEMES';
+  animeId: number;
+}
+export interface MalThemesResponse {
+  ok: boolean;
+  openings: string[];
+  endings: string[];
 }
 
 /** Side panel -> worker: the signed-in user's list for a status (home dashboard). */
@@ -174,6 +190,7 @@ export type RuntimeMessage =
   | SetMalStatusRequest
   | MalCharactersRequest
   | MalReviewsRequest
+  | MalThemesRequest
   | MyListRequest
   | SeasonalRequest
   | RecommendationsRequest
@@ -252,6 +269,13 @@ export function requestMalCharacters(animeId: number): Promise<MalCharactersResp
 export function requestMalReviews(animeId: number): Promise<MalReviewsResponse> {
   return chrome.runtime.sendMessage<MalReviewsRequest, MalReviewsResponse>({
     type: 'GET_MAL_REVIEWS',
+    animeId,
+  });
+}
+
+export function requestMalThemes(animeId: number): Promise<MalThemesResponse> {
+  return chrome.runtime.sendMessage<MalThemesRequest, MalThemesResponse>({
+    type: 'GET_MAL_THEMES',
     animeId,
   });
 }

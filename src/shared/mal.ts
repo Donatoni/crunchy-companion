@@ -221,6 +221,11 @@ export interface MalDetails extends MalStatus {
   year: number | null;
   studios: string[];
   related: MalRelated[];
+  /** MAL airing status: currently_airing / finished_airing / not_yet_aired. */
+  airingStatus: string | null;
+  /** Weekly broadcast slot (JST), when the show is airing on a schedule. */
+  broadcastDay: string | null;
+  broadcastTime: string | null;
 }
 
 /**
@@ -233,7 +238,7 @@ export async function getAnimeDetails(
   animeId: number,
 ): Promise<MalDetails> {
   const fields =
-    'title,synopsis,main_picture,genres,mean,rank,num_episodes,media_type,start_season,studios,' +
+    'title,synopsis,main_picture,genres,mean,rank,num_episodes,media_type,start_season,studios,status,broadcast,' +
     'related_anime{media_type,num_episodes,main_picture}' +
     (access ? ',my_list_status{status,score,num_episodes_watched,is_rewatching,num_times_rewatched}' : '');
   const res = await fetch(`${API}/anime/${animeId}?fields=${fields}`, {
@@ -254,6 +259,9 @@ export async function getAnimeDetails(
     mediaType: j.media_type ?? null,
     year: j.start_season?.year ?? null,
     studios: (j.studios ?? []).map((s: { name: string }) => s.name),
+    airingStatus: j.status ?? null,
+    broadcastDay: j.broadcast?.day_of_the_week ?? null,
+    broadcastTime: j.broadcast?.start_time ?? null,
     related: (j.related_anime ?? []).map(
       (r: {
         node: { id: number; title: string; main_picture?: { medium?: string }; media_type?: string; num_episodes?: number };
@@ -292,6 +300,23 @@ export async function getCharacters(animeId: number): Promise<MalCharacter[]> {
       image: d.character?.images?.jpg?.image_url ?? null,
       role: d.role ?? '',
     }));
+}
+
+/**
+ * Opening/ending theme songs via Jikan (MAL's own v2 API has no themes
+ * endpoint). Returns the raw display strings; parsing lives in themes.ts.
+ * Best-effort — callers should tolerate this throwing / returning empties.
+ */
+export async function getThemes(
+  animeId: number,
+): Promise<{ openings: string[]; endings: string[] }> {
+  const res = await fetch(`https://api.jikan.moe/v4/anime/${animeId}/themes`);
+  if (!res.ok) throw new Error(`Jikan HTTP ${res.status}`);
+  const j = await res.json();
+  return {
+    openings: (j.data?.openings ?? []).filter((s: unknown) => typeof s === 'string'),
+    endings: (j.data?.endings ?? []).filter((s: unknown) => typeof s === 'string'),
+  };
 }
 
 /**
