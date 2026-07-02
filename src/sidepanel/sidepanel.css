@@ -274,13 +274,23 @@ body {
 .set-btn.ghost { border-color: transparent; background: transparent; color: var(--text-3); }
 .set-btn.ghost:hover { background: rgba(255,255,255,0.05); color: var(--text); }
 
-/* Rate row: the one section with its own personality — a row of gold stars,
-   the whole row is the link (no pill button, no box). */
-.rate-cta { display: flex; align-items: center; gap: 12px; padding: 6px 0; text-decoration: none; color: inherit; }
-.rate-cta .rate-stars { flex: 0 0 auto; color: #ffc24b; font-size: 12px; letter-spacing: 1.5px; opacity: 0.75; transition: opacity 0.15s ease; }
-.rate-cta .rate-chev { flex: 0 0 auto; color: var(--text-3); transition: color 0.15s ease, transform 0.15s ease; }
-.rate-cta:hover .rate-stars { opacity: 1; }
-.rate-cta:hover .rate-chev { color: var(--text); transform: translateX(2px); }
+/* Sync status footer: one quiet mono line under the account row, with a plain
+   accent text-link instead of a button. */
+.sync-line { display: flex; align-items: center; gap: 7px; padding: 0 0 4px 42px; font: 500 11px var(--mono); color: var(--text-3); }
+.sync-line .sync-ic { flex: 0 0 auto; }
+.sync-line .sync-when { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.link-accent { flex: 0 0 auto; background: none; border: none; cursor: pointer; color: #8aa6ff; font: 600 11.5px var(--sans); padding: 2px 4px; border-radius: 6px; }
+.link-accent:hover { text-decoration: underline; }
+.link-accent:disabled { opacity: 0.6; cursor: default; text-decoration: none; }
+
+/* Rate block: centered mini-banner — stars, one question, an accent link line.
+   The whole block is the link (no button, no box, no chevron). */
+.rate-cta { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 8px 0 6px; text-align: center; text-decoration: none; color: inherit; }
+.rate-cta .rate-stars { color: #ffc24b; font-size: 15px; letter-spacing: 4px; margin-left: 4px; opacity: 0.8; transition: opacity 0.15s ease, text-shadow 0.15s ease; }
+.rate-cta .rate-title { font-size: 13px; font-weight: 600; }
+.rate-cta .rate-go { font: 600 11.5px var(--sans); color: var(--accent-bright); opacity: 0.9; transition: opacity 0.15s ease; }
+.rate-cta:hover .rate-stars { opacity: 1; text-shadow: 0 0 12px rgba(255,194,75,0.45); }
+.rate-cta:hover .rate-go { opacity: 1; text-decoration: underline; }
 .set-sub-label { font-size: 11px; color: var(--text-3); margin: 14px 0 8px; font-weight: 500; }
 .set-sub-toggle { display: flex; align-items: center; gap: 8px; width: 100%; padding: 0; background: none; border: none; cursor: pointer; text-align: left; }
 .set-sub-toggle .set-sub-label { margin: 14px 0; }

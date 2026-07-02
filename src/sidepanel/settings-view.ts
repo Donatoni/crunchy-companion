@@ -65,9 +65,13 @@ async function renderSyncSettings(): Promise<void> {
     setSyncSignOut.hidden = false;
     setSyncActions.hidden = false;
     const meta = await getSyncMeta();
+    // Single status line ("Synced 2m ago") — phrased here, not split into a
+    // label + value, so error and syncing states read naturally too.
     setSyncWhen.textContent = meta.lastError
-      ? `Error: ${meta.lastError}`
-      : relSyncTime(meta.lastSyncedAt);
+      ? `Sync failed — ${meta.lastError}`
+      : meta.lastSyncedAt
+        ? `Synced ${relSyncTime(meta.lastSyncedAt)}`
+        : 'Not synced yet';
   } else {
     setSyncStatus.textContent = 'Not signed in';
     setSyncSignIn.hidden = false;
@@ -100,7 +104,9 @@ setSyncNowBtn.addEventListener('click', async () => {
   setSyncWhen.textContent = 'Syncing…';
   try {
     const r = await requestSyncNow();
-    setSyncWhen.textContent = r.ok ? relSyncTime(r.lastSyncedAt) : `Error: ${r.error ?? 'failed'}`;
+    setSyncWhen.textContent = r.ok
+      ? `Synced ${relSyncTime(r.lastSyncedAt)}`
+      : `Sync failed — ${r.error ?? 'failed'}`;
   } finally {
     setSyncNowBtn.disabled = false;
   }
