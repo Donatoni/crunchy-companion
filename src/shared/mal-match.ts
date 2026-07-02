@@ -39,8 +39,13 @@ export function detectSeason(normalizedTitle: string, baseName: string): number 
 export function titleSimilarity(q: string, t: string): number {
   if (!q || !t) return 0;
   if (t === q) return 100;
-  if (t.startsWith(q) || q.startsWith(t)) return 80;
-  if (t.includes(q) || q.includes(t)) return 55;
+  // Containment scores scale with how much of the longer string the match
+  // explains: "naruto" prefixes both "naruto" and "naruto shippuuden movie 4
+  // the lost tower", but the latter leaves five words unaccounted for and must
+  // not tie with a near-exact candidate.
+  const coverage = Math.min(q.length, t.length) / Math.max(q.length, t.length);
+  if (t.startsWith(q) || q.startsWith(t)) return 55 + 25 * coverage;
+  if (t.includes(q) || q.includes(t)) return 35 + 20 * coverage;
   const qWords = new Set(q.split(' '));
   const tWords = t.split(' ');
   const overlap = tWords.filter((w) => qWords.has(w)).length;
@@ -69,6 +74,11 @@ export function matchScore(
   let candSeason = 1;
   for (const candidate of [anime.title, ...anime.altTitles]) {
     const t = normalizeTitle(candidate);
+    // Skip titles that lose most of their characters to normalization — a
+    // Japanese alt title whose only Latin residue is the brand name (e.g.
+    // "劇場版 NARUTO-ナルト-疾風伝 ザ・ロストタワー" normalizes to exactly
+    // "naruto") would otherwise fake a perfect match for every franchise entry.
+    if (!t || t.length * 2 < candidate.trim().length) continue;
     const s = titleSimilarity(q, t);
     if (s > bestTitle) {
       bestTitle = s;

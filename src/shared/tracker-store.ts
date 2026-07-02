@@ -14,7 +14,7 @@ const MAP_KEY = 'mal_mappings';
  * older version are re-resolved on next use, so improvements (e.g. better
  * title matching) automatically heal previously-mismatched shows.
  */
-export const RESOLVER_VERSION = 2;
+export const RESOLVER_VERSION = 3;
 
 export interface TrackerMapping {
   /** MAL anime id this CR series+season maps to. */

@@ -74,4 +74,28 @@ describe('matchScore', () => {
   it('scores zero for an empty query', () => {
     expect(matchScore('', 1, tv('Anything'))).toBe(0);
   });
+
+  // Regression: watching Naruto S1 matched "The Lost Tower" movie. Its
+  // Japanese alt title normalizes to exactly "naruto" (only the Latin brand
+  // survives), faking a perfect title match.
+  it('ignores alt titles that are mostly non-Latin brand residue', () => {
+    const lostTower = matchScore('Naruto', 1, {
+      title: 'Naruto: Shippuuden Movie 4 - The Lost Tower',
+      altTitles: [
+        'Naruto Shippuden the Movie 4: The Lost Tower',
+        '劇場版 NARUTO-ナルト-疾風伝 ザ・ロストタワー',
+      ],
+      mediaType: 'movie',
+    });
+    const series = matchScore('Naruto', 1, tv('Naruto'));
+    expect(series).toBeGreaterThan(lostTower);
+  });
+
+  // Regression: a bare prefix match ("Naruto" ⊂ "Naruto: Shippuuden") must not
+  // rival the exact-title entry — containment now scales with coverage.
+  it('prefers the exact franchise entry over a longer prefixed title', () => {
+    const shippuuden = matchScore('Naruto', 1, tv('Naruto: Shippuuden', ['Naruto Shippuden']));
+    const series = matchScore('Naruto', 1, tv('Naruto'));
+    expect(series - shippuuden).toBeGreaterThan(20);
+  });
 });

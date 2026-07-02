@@ -121,8 +121,12 @@ interface MalAnimeNode {
 }
 
 export async function searchAnime(access: string | null, q: string): Promise<MalAnime[]> {
+  // limit=20, not 10: MAL's relevance ranking can bury the main TV series
+  // under a franchise's movies/specials — searching "Naruto" returns the
+  // Naruto TV series at position ~14. The scorer picks the right entry only
+  // if it's in the pool at all.
   const res = await fetch(
-    `${API}/anime?q=${encodeURIComponent(q)}&limit=10&fields=num_episodes,media_type,alternative_titles`,
+    `${API}/anime?q=${encodeURIComponent(q)}&limit=20&fields=num_episodes,media_type,alternative_titles`,
     { headers: authHeaders(access) },
   );
   if (!res.ok) throw new Error(`MAL search HTTP ${res.status}`);
